@@ -1,0 +1,34 @@
+[package]
+name = "voxel-editor"
+version = "0.1.0"
+authors = ["Zakor <gyula.zakor@h-lab.eu>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies.wgc]
+package = "wgpu-core"
+version = "0.5"
+git = "https://github.com/gfx-rs/wgpu"
+rev = "ac9587e9ced5b043abad68e260cb8c9e812cffb5"
+features = ["raw-window-handle"]
+
+[dependencies.wgt]
+package = "wgpu-types"
+version = "0.5"
+git = "https://github.com/gfx-rs/wgpu"
+rev = "ac9587e9ced5b043abad68e260cb8c9e812cffb5"
+
+[dependencies.wgpu]
+package = "wgpu"
+version = "0.5.0"
+git = "https://github.com/gfx-rs/wgpu-rs"
+rev = "45b79a21f19cf99d56fae1153efc9e841c8ef6bb"
+
+[dependencies]
+bytemuck = "1"
+cgmath = "0.17"
+env_logger = "0.7"
+futures = "0.3"
+log = "0.4"
+winit = "0.22.1"
