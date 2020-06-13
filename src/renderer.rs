@@ -16,28 +16,7 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-pub trait Example: 'static + Sized {
-    fn init(
-        sc_desc: &wgpu::SwapChainDescriptor,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> (Self, Option<wgpu::CommandBuffer>);
-    fn resize(
-        &mut self,
-        sc_desc: &wgpu::SwapChainDescriptor,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    );
-    fn update(&mut self, event: WindowEvent);
-    fn render(
-        &mut self,
-        frame: &wgpu::SwapChainTexture,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-    ) -> wgpu::CommandBuffer;
-}
-
-pub async fn run_async<E: Example>(event_loop: EventLoop<()>, window: Window) {
+pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
     log::info!("Initializing the surface...");
 
     let instance = wgpu::Instance::new();
@@ -79,11 +58,8 @@ pub async fn run_async<E: Example>(event_loop: EventLoop<()>, window: Window) {
     };
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-    log::info!("Initializing the example...");
-    let (mut example, init_command_buf) = E::init(&sc_desc, &device, &queue);
-    if init_command_buf.is_some() {
-        queue.submit(init_command_buf);
-    }
+    log::info!("Initializing the Renderer...");
+    let mut renderer = Renderer::init(&sc_desc, &device, &queue);
 
     let mut last_update_inst = time::Instant::now();
 
@@ -109,7 +85,7 @@ pub async fn run_async<E: Example>(event_loop: EventLoop<()>, window: Window) {
                 log::info!("Resizing to {:?}", size);
                 sc_desc.width = size.width;
                 sc_desc.height = size.height;
-                example.resize(&sc_desc, &device, &queue);
+                renderer.resize(&sc_desc, &device, &queue);
             }
             event::Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
@@ -125,7 +101,7 @@ pub async fn run_async<E: Example>(event_loop: EventLoop<()>, window: Window) {
                     *control_flow = ControlFlow::Exit;
                 }
                 _ => {
-                    example.update(event);
+                    renderer.update(event);
                 }
             },
             event::Event::RedrawRequested(_) => {
@@ -139,7 +115,7 @@ pub async fn run_async<E: Example>(event_loop: EventLoop<()>, window: Window) {
                     }
                 };
 
-                let command_buf = example.render(&frame.output, &device, &queue);
+                let command_buf = renderer.render(&frame.output, &device, &queue);
                 queue.submit(Some(command_buf));
             }
             _ => {}
@@ -153,89 +129,46 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Clone, Copy)]
 struct Vertex {
     _pos: [f32; 4],
-    _tex_coord: [f32; 2],
 }
 
 unsafe impl Pod for Vertex {}
 unsafe impl Zeroable for Vertex {}
 
-fn vertex(pos: [i8; 3], tc: [i8; 2]) -> Vertex {
+fn vertex(pos: [i8; 3]) -> Vertex {
     Vertex {
         _pos: [pos[0] as f32, pos[1] as f32, pos[2] as f32, 1.0],
-        _tex_coord: [tc[0] as f32, tc[1] as f32],
     }
 }
 
 fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
     let vertex_data = [
-        // top (0, 0, 1)
-        vertex([-1, -1, 1], [0, 0]),
-        vertex([1, -1, 1], [1, 0]),
-        vertex([1, 1, 1], [1, 1]),
-        vertex([-1, 1, 1], [0, 1]),
         // bottom (0, 0, -1)
-        vertex([-1, 1, -1], [1, 0]),
-        vertex([1, 1, -1], [0, 0]),
-        vertex([1, -1, -1], [0, 1]),
-        vertex([-1, -1, -1], [1, 1]),
-        // right (1, 0, 0)
-        vertex([1, -1, -1], [0, 0]),
-        vertex([1, 1, -1], [1, 0]),
-        vertex([1, 1, 1], [1, 1]),
-        vertex([1, -1, 1], [0, 1]),
+        vertex([-1, 1, -1]),
+        vertex([1, 1, -1]),
+        vertex([1, -1, -1]),
+        vertex([-1, -1, -1]),
         // left (-1, 0, 0)
-        vertex([-1, -1, 1], [1, 0]),
-        vertex([-1, 1, 1], [0, 0]),
-        vertex([-1, 1, -1], [0, 1]),
-        vertex([-1, -1, -1], [1, 1]),
+        vertex([-1, -1, 1]),
+        vertex([-1, 1, 1]),
+        vertex([-1, 1, -1]),
+        vertex([-1, -1, -1]),
         // front (0, 1, 0)
-        vertex([1, 1, -1], [1, 0]),
-        vertex([-1, 1, -1], [0, 0]),
-        vertex([-1, 1, 1], [0, 1]),
-        vertex([1, 1, 1], [1, 1]),
-        // back (0, -1, 0)
-        vertex([1, -1, 1], [0, 0]),
-        vertex([-1, -1, 1], [1, 0]),
-        vertex([-1, -1, -1], [1, 1]),
-        vertex([1, -1, -1], [0, 1]),
+        vertex([1, 1, -1]),
+        vertex([-1, 1, -1]),
+        vertex([-1, 1, 1]),
+        vertex([1, 1, 1]),
     ];
 
     let index_data: &[u16] = &[
-        0, 1, 2, 2, 3, 0, // top
-        4, 5, 6, 6, 7, 4, // bottom
-        8, 9, 10, 10, 11, 8, // right
-        12, 13, 14, 14, 15, 12, // left
-        16, 17, 18, 18, 19, 16, // front
-        20, 21, 22, 22, 23, 20, // back
+        0, 1, 1, 2, 2, 3, 3, 0, // top
+        4, 5, 5, 6, 6, 7, 7, 4, // bottom
+        8, 9, 9, 10, 10, 11, 11, 8, // right
     ];
 
     (vertex_data.to_vec(), index_data.to_vec())
 }
 
-fn create_texels(size: usize) -> Vec<u8> {
-    use std::iter;
-
-    (0..size * size)
-        .flat_map(|id| {
-            // get high five for recognizing this ;)
-            let cx = 3.0 * (id % size) as f32 / (size - 1) as f32 - 2.0;
-            let cy = 2.0 * (id / size) as f32 / (size - 1) as f32 - 1.0;
-            let (mut x, mut y, mut count) = (cx, cy, 0);
-            while count < 0xFF && x * x + y * y < 4.0 {
-                let old_x = x;
-                x = x * x - y * y + cx;
-                y = 2.0 * old_x * y + cy;
-                count += 1;
-            }
-            iter::once(0xFF - (count * 5) as u8)
-                .chain(iter::once(0xFF - (count * 15) as u8))
-                .chain(iter::once(0xFF - (count * 50) as u8))
-                .chain(iter::once(1))
-        })
-        .collect()
-}
-
-pub struct _Example {
+pub struct Renderer {
     vertex_buf: wgpu::Buffer,
     index_buf: wgpu::Buffer,
     index_count: usize,
@@ -244,7 +177,7 @@ pub struct _Example {
     pipeline: wgpu::RenderPipeline,
 }
 
-impl _Example {
+impl Renderer {
     fn generate_matrix(aspect_ratio: f32) -> cgmath::Matrix4<f32> {
         let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
         let mx_view = cgmath::Matrix4::look_at(
@@ -255,14 +188,12 @@ impl _Example {
         let mx_correction = OPENGL_TO_WGPU_MATRIX;
         mx_correction * mx_projection * mx_view
     }
-}
 
-impl Example for _Example {
-    fn init(
+    pub fn init(
         sc_desc: &wgpu::SwapChainDescriptor,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-    ) -> (Self, Option<wgpu::CommandBuffer>) {
+    ) -> Self {
         use std::mem;
 
         // Create the vertex and index buffers
@@ -286,73 +217,12 @@ impl Example for _Example {
                     visibility: wgpu::ShaderStage::VERTEX,
                     ty: wgpu::BindingType::UniformBuffer { dynamic: false },
                 },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
-                        multisampled: false,
-                        component_type: wgpu::TextureComponentType::Float,
-                        dimension: wgpu::TextureViewDimension::D2,
-                    },
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 2,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler { comparison: false },
-                },
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
         });
 
-        // Create the texture
-        let size = 256u32;
-        let texels = create_texels(size as usize);
-        let texture_extent = wgpu::Extent3d {
-            width: size,
-            height: size,
-            depth: 1,
-        };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: None,
-            size: texture_extent,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-        });
-        let texture_view = texture.create_default_view();
-        queue.write_texture(
-            wgpu::TextureCopyView {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &texels,
-            wgpu::TextureDataLayout {
-                offset: 0,
-                bytes_per_row: 4 * size,
-                rows_per_image: 0,
-            },
-            texture_extent,
-        );
-
-        // Create other resources
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: None,
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            lod_min_clamp: 0.0,
-            lod_max_clamp: 100.0,
-            compare: None,
-            anisotropy_clamp: None,
-        });
         let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
         let mx_ref: &[f32; 16] = mx_total.as_ref();
         let uniform_buf = device.create_buffer_with_data(
@@ -367,14 +237,6 @@ impl Example for _Example {
                 wgpu::Binding {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
-                },
-                wgpu::Binding {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&texture_view),
-                },
-                wgpu::Binding {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
                 },
             ],
             label: None,
@@ -400,16 +262,24 @@ impl Example for _Example {
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
+                cull_mode: wgpu::CullMode::None,
                 depth_bias: 0,
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
             }),
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            primitive_topology: wgpu::PrimitiveTopology::LineList,
             color_states: &[wgpu::ColorStateDescriptor {
                 format: sc_desc.format,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
+                color_blend: wgpu::BlendDescriptor {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha_blend: wgpu::BlendDescriptor {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
                 write_mask: wgpu::ColorWrite::ALL,
             }],
             depth_stencil_state: None,
@@ -424,11 +294,6 @@ impl Example for _Example {
                             offset: 0,
                             shader_location: 0,
                         },
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float2,
-                            offset: 4 * 4,
-                            shader_location: 1,
-                        },
                     ],
                 }],
             },
@@ -438,22 +303,21 @@ impl Example for _Example {
         });
 
         // Done
-        let this = _Example {
+        Renderer {
             vertex_buf,
             index_buf,
             index_count: index_data.len(),
             bind_group,
             uniform_buf,
             pipeline,
-        };
-        (this, None)
+        }
     }
 
-    fn update(&mut self, _event: winit::event::WindowEvent) {
+    pub fn update(&mut self, _event: winit::event::WindowEvent) {
         //empty
     }
 
-    fn resize(
+    pub fn resize(
         &mut self,
         sc_desc: &wgpu::SwapChainDescriptor,
         _device: &wgpu::Device,
@@ -464,7 +328,7 @@ impl Example for _Example {
         queue.write_buffer(&self.uniform_buf, 0, bytemuck::cast_slice(mx_ref));
     }
 
-    fn render(
+    pub fn render(
         &mut self,
         frame: &wgpu::SwapChainTexture,
         device: &wgpu::Device,
@@ -480,7 +344,7 @@ impl Example for _Example {
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
                     clear_color: wgpu::Color {
-                        r: 0.1,
+                        r: 0.0,
                         g: 0.2,
                         b: 0.3,
                         a: 1.0,
