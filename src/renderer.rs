@@ -7,6 +7,8 @@ use winit::{
     window::Window,
 };
 
+static DEFAULT_MESH_RESOLUTION: u16 = 16;
+
 #[cfg_attr(rustfmt, rustfmt_skip)]
 #[allow(unused)]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -59,7 +61,7 @@ pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
     let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
     log::info!("Initializing the Renderer...");
-    let mut renderer = Renderer::init(&sc_desc, &device, &queue);
+    let mut renderer = Renderer::init(&sc_desc, &device, DEFAULT_MESH_RESOLUTION);
 
     let mut last_update_inst = time::Instant::now();
 
@@ -134,38 +136,54 @@ struct Vertex {
 unsafe impl Pod for Vertex {}
 unsafe impl Zeroable for Vertex {}
 
-fn vertex(pos: [i8; 3]) -> Vertex {
+fn vertex(pos: [f32; 3]) -> Vertex {
     Vertex {
-        _pos: [pos[0] as f32, pos[1] as f32, pos[2] as f32, 1.0],
+        _pos: [pos[0], pos[1], pos[2], 1.0],
     }
 }
 
-fn create_vertices() -> (Vec<Vertex>, Vec<u16>) {
-    let vertex_data = [
-        // bottom (0, 0, -1)
-        vertex([-1, 1, -1]),
-        vertex([1, 1, -1]),
-        vertex([1, -1, -1]),
-        vertex([-1, -1, -1]),
-        // left (-1, 0, 0)
-        vertex([-1, -1, 1]),
-        vertex([-1, 1, 1]),
-        vertex([-1, 1, -1]),
-        vertex([-1, -1, -1]),
-        // front (0, 1, 0)
-        vertex([1, 1, -1]),
-        vertex([-1, 1, -1]),
-        vertex([-1, 1, 1]),
-        vertex([1, 1, 1]),
-    ];
+fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
+    let mut vertex_data = Vec::new();
+    let mut index_data: Vec<u16> = Vec::new();
 
-    let index_data: &[u16] = &[
-        0, 1, 1, 2, 2, 3, 3, 0, // top
-        4, 5, 5, 6, 6, 7, 7, 4, // bottom
-        8, 9, 9, 10, 10, 11, 11, 8, // right
-    ];
+    let step = 1.0 / resolution as f32;
+    for i in 0..(resolution + 1)
+    {
+        // bottom
+        vertex_data.push(vertex([0.0, 0.0 + i as f32 * step, 0.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex([1.0, 0.0 + i as f32 * step, 0.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
 
-    (vertex_data.to_vec(), index_data.to_vec())
+        vertex_data.push(vertex([0.0 + i as f32 * step, 0.0, 0.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex([0.0 + i as f32 * step, 1.0, 0.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
+
+        // left
+        vertex_data.push(vertex([0.0, 0.0 + i as f32 * step, 0.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex([0.0, 0.0 + i as f32 * step, 1.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
+
+        vertex_data.push(vertex([0.0, 0.0, 0.0 + i as f32 * step]));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex([0.0, 1.0, 0.0 + i as f32 * step]));
+        index_data.push((vertex_data.len() - 1) as u16);
+
+        // back
+        vertex_data.push(vertex([0.0 + i as f32 * step, 1.0, 0.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex([0.0 + i as f32 * step, 1.0, 1.0]));
+        index_data.push((vertex_data.len() - 1) as u16);
+
+        vertex_data.push(vertex([0.0, 1.0, 0.0 + i as f32 * step]));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex([1.0, 1.0, 0.0 + i as f32 * step]));
+        index_data.push((vertex_data.len() - 1) as u16);
+    }
+
+    (vertex_data, index_data)
 }
 
 pub struct Renderer {
@@ -175,14 +193,16 @@ pub struct Renderer {
     bind_group: wgpu::BindGroup,
     uniform_buf: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
+    _mesh_resolution: u16,
 }
 
 impl Renderer {
     fn generate_matrix(aspect_ratio: f32) -> cgmath::Matrix4<f32> {
         let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
+        //let mx_projection = cgmath::ortho(-1.0, 1.0, -1.0, 1.0, 1.0, 10.0);
         let mx_view = cgmath::Matrix4::look_at(
-            cgmath::Point3::new(1.5f32, -5.0, 3.0),
-            cgmath::Point3::new(0f32, 0.0, 0.0),
+            cgmath::Point3::new(1.5f32, -2.0, 2.0),
+            cgmath::Point3::new(0f32, 1.0, 0.0),
             cgmath::Vector3::unit_z(),
         );
         let mx_correction = OPENGL_TO_WGPU_MATRIX;
@@ -192,13 +212,13 @@ impl Renderer {
     pub fn init(
         sc_desc: &wgpu::SwapChainDescriptor,
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        mesh_resolution: u16,
     ) -> Self {
         use std::mem;
 
         // Create the vertex and index buffers
         let vertex_size = mem::size_of::<Vertex>();
-        let (vertex_data, index_data) = create_vertices();
+        let (vertex_data, index_data) = generate_mesh_vertices(mesh_resolution);
 
         let vertex_buf = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
@@ -310,6 +330,7 @@ impl Renderer {
             bind_group,
             uniform_buf,
             pipeline,
+            _mesh_resolution: mesh_resolution,
         }
     }
 
