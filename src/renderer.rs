@@ -1,3 +1,4 @@
+use crate::camera::{OrbitZoomCamera, OrbitZoomCameraSettings};
 use cgmath;
 use std::time;
 use wgpu;
@@ -103,7 +104,7 @@ pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
                     *control_flow = ControlFlow::Exit;
                 }
                 _ => {
-                    renderer.update(event);
+                    renderer.update(event, &sc_desc, &queue);
                 }
             },
             event::Event::RedrawRequested(_) => {
@@ -210,28 +211,18 @@ impl Pipeline {
 
 pub struct Renderer {
     mesh_pipeline: Pipeline,
+    camera: OrbitZoomCamera,
     _mesh_resolution: u16,
 }
 
 impl Renderer {
-    fn generate_matrix(aspect_ratio: f32) -> cgmath::Matrix4<f32> {
-        let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
-        //let mx_projection = cgmath::ortho(-1.0, 1.0, -1.0, 1.0, 1.0, 10.0);
-        let mx_view = cgmath::Matrix4::look_at(
-            cgmath::Point3::new(1.5f32, -2.0, 2.0),
-            cgmath::Point3::new(0f32, 1.0, 0.0),
-            cgmath::Vector3::unit_z(),
-        );
-        let mx_correction = OPENGL_TO_WGPU_MATRIX;
-        mx_correction * mx_projection * mx_view
-    }
-
     pub fn init(
         sc_desc: &wgpu::SwapChainDescriptor,
         device: &wgpu::Device,
         mesh_resolution: u16,
     ) -> Self {
         use std::mem;
+        let camera = OrbitZoomCamera::new([0f32, 1.0, 0.0], OrbitZoomCameraSettings::default());
 
         // Create the vertex and index buffers
         let vertex_size = mem::size_of::<Vertex>();
@@ -260,7 +251,7 @@ impl Renderer {
             bind_group_layouts: &[&bind_group_layout],
         });
 
-        let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+        let mx_total = camera.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
         let mx_ref: &[f32; 16] = mx_total.as_ref();
         let uniform_buf = device.create_buffer_with_data(
             bytemuck::cast_slice(mx_ref),
@@ -349,12 +340,21 @@ impl Renderer {
                 index_buf: index_buf_mesh,
                 index_count: index_data.len(),
             },
+            camera,
             _mesh_resolution: mesh_resolution,
         }
     }
 
-    pub fn update(&mut self, _event: winit::event::WindowEvent) {
-        //empty
+    pub fn update(
+        &mut self,
+        event: winit::event::WindowEvent,
+        sc_desc: &wgpu::SwapChainDescriptor,
+        queue: &wgpu::Queue,
+    ) {
+        self.camera.update(&event);
+        let mx_total = self.camera.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+        let mx_ref: &[f32; 16] = mx_total.as_ref();
+        queue.write_buffer(&self.mesh_pipeline.uniform_buf, 0, bytemuck::cast_slice(mx_ref));
     }
 
     pub fn resize(
@@ -363,7 +363,7 @@ impl Renderer {
         _device: &wgpu::Device,
         queue: &wgpu::Queue,
     ) {
-        let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+        let mx_total = self.camera.generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
         let mx_ref: &[f32; 16] = mx_total.as_ref();
         queue.write_buffer(&self.mesh_pipeline.uniform_buf, 0, bytemuck::cast_slice(mx_ref));
     }
