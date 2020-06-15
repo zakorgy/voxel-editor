@@ -186,13 +186,30 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data, index_data)
 }
 
-pub struct Renderer {
-    vertex_buf: wgpu::Buffer,
-    index_buf: wgpu::Buffer,
-    index_count: usize,
+struct Pipeline {
     bind_group: wgpu::BindGroup,
     uniform_buf: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
+    vertex_buf: wgpu::Buffer,
+    index_buf: wgpu::Buffer,
+    index_count: usize,
+}
+
+impl Pipeline {
+    fn draw<'a>(
+        &'a mut self,
+        render_pass: &mut wgpu::RenderPass<'a>,
+    ) {
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_index_buffer(self.index_buf.slice(..));
+        render_pass.set_vertex_buffer(0, self.vertex_buf.slice(..));
+        render_pass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+    }
+}
+
+pub struct Renderer {
+    mesh_pipeline: Pipeline,
     _mesh_resolution: u16,
 }
 
@@ -220,12 +237,12 @@ impl Renderer {
         let vertex_size = mem::size_of::<Vertex>();
         let (vertex_data, index_data) = generate_mesh_vertices(mesh_resolution);
 
-        let vertex_buf = device.create_buffer_with_data(
+        let vertex_buf_mesh = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
             wgpu::BufferUsage::VERTEX,
         );
 
-        let index_buf = device
+        let index_buf_mesh = device
             .create_buffer_with_data(bytemuck::cast_slice(&index_data), wgpu::BufferUsage::INDEX);
 
         // Create pipeline layout
@@ -251,7 +268,7 @@ impl Renderer {
         );
 
         // Create bind group
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let mesh_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             bindings: &[
                 wgpu::Binding {
@@ -270,7 +287,7 @@ impl Renderer {
         let fs_module = device
             .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        let mesh_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
                 module: &vs_module,
@@ -324,12 +341,14 @@ impl Renderer {
 
         // Done
         Renderer {
-            vertex_buf,
-            index_buf,
-            index_count: index_data.len(),
-            bind_group,
-            uniform_buf,
-            pipeline,
+            mesh_pipeline: Pipeline {
+                pipeline: mesh_pipeline,
+                bind_group: mesh_bind_group,
+                uniform_buf,
+                vertex_buf: vertex_buf_mesh,
+                index_buf: index_buf_mesh,
+                index_count: index_data.len(),
+            },
             _mesh_resolution: mesh_resolution,
         }
     }
@@ -346,7 +365,7 @@ impl Renderer {
     ) {
         let mx_total = Self::generate_matrix(sc_desc.width as f32 / sc_desc.height as f32);
         let mx_ref: &[f32; 16] = mx_total.as_ref();
-        queue.write_buffer(&self.uniform_buf, 0, bytemuck::cast_slice(mx_ref));
+        queue.write_buffer(&self.mesh_pipeline.uniform_buf, 0, bytemuck::cast_slice(mx_ref));
     }
 
     pub fn render(
@@ -373,11 +392,7 @@ impl Renderer {
                 }],
                 depth_stencil_attachment: None,
             });
-            rpass.set_pipeline(&self.pipeline);
-            rpass.set_bind_group(0, &self.bind_group, &[]);
-            rpass.set_index_buffer(self.index_buf.slice(..));
-            rpass.set_vertex_buffer(0, self.vertex_buf.slice(..));
-            rpass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+            self.mesh_pipeline.draw(&mut rpass);
         }
 
         encoder.finish()
