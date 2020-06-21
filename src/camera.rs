@@ -278,3 +278,85 @@ impl OrbitZoomCamera {
         return mx_projection * mx_view
     }
 }
+
+pub struct Camera {
+    fov: f32,
+    znear: f32,
+    zfar: f32,
+    rotation: cgmath::Vector3<f32>,
+    rotation_speed: f32,
+    zoom_speed: f32,
+    position: cgmath::Vector3<f32>,
+    view_pos: cgmath::Vector4<f32>,
+    perspective: cgmath::Matrix4<f32>,
+    view: cgmath::Matrix4<f32>,
+    orbit_button : event::MouseButton,
+    zoom_button : event::VirtualKeyCode,
+    keys: Keys,
+}
+
+impl Camera {
+    fn update_view_matrix(&mut self){
+
+    }
+
+    pub fn near_clip(&self) -> f32 {
+        self.znear
+    }
+
+    pub fn far_clip(&self) -> f32 {
+        self.zfar
+    }
+
+    pub fn set_perspective(&mut self, fov: f32, aspect: f32, znear: f32, zfar: f32) {
+        self.fov = fov;
+        self.znear = znear;
+        self.zfar = zfar;
+        self.perspective = cgmath::perspective(cgmath::Deg(fov), aspect, znear, zfar);
+    }
+
+    pub fn update_aspect_ratio(&mut self, aspect: f32)
+    {
+        self.perspective = cgmath::perspective(cgmath::Deg(self.fov), aspect, self.znear, self.zfar);
+    }
+
+    pub fn set_position(&mut self, position: cgmath::Vector3<f32>)
+    {
+        self.position = position;
+        self.update_view_matrix();
+    }
+
+    pub fn set_rotation(&mut self, rotation: cgmath::Vector3<f32>)
+    {
+        self.rotation = rotation;
+        self.update_view_matrix();
+    }
+
+    pub fn rotate(&mut self, delta: cgmath::Vector3<f32>)
+    {
+        self.rotation += delta;
+        self.update_view_matrix();
+    }
+
+    void set_translation(glm::vec3 translation)
+    {
+        self.position = translation;
+        self.update_view_matrix();
+    };
+
+    void translate(glm::vec3 delta)
+    {
+        self.position += delta;
+        self.update_view_matrix();
+    }
+
+    void setRotationSpeed(rotationSpeed: f32)
+    {
+        self.rotationSpeed = rotationSpeed;
+    }
+
+    void setMovementSpeed(movementSpeed: f32)
+    {
+        self.movementSpeed = movementSpeed;
+    }
+}
