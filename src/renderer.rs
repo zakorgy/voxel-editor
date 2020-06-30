@@ -20,6 +20,7 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 );
 
 const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.7];
 const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
 const BLUE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
 
@@ -216,9 +217,20 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data, index_data)
 }
 
+fn generate_cursor_vertices(resolution: u16, xpos: f32, ypos: f32) -> (Vec<Vertex>, Vec<u16>) {
+    let mut vertex_data = Vec::new();
+    let step = 1.0 / resolution as f32;
+    vertex_data.push(vertex([xpos, ypos, 0.0], HALF_ALPHA_RED));
+    vertex_data.push(vertex([xpos + step, ypos, 0.0], HALF_ALPHA_RED));
+    vertex_data.push(vertex([xpos + step, ypos + step, 0.0], HALF_ALPHA_RED));
+    vertex_data.push(vertex([xpos, ypos + step, 0.0], HALF_ALPHA_RED));
+
+    let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
+    (vertex_data, index_data)
+}
+
 struct Pipeline {
     bind_group: wgpu::BindGroup,
-    uniform_buf: wgpu::Buffer,
     pipeline: wgpu::RenderPipeline,
     vertex_buf: wgpu::Buffer,
     index_buf: wgpu::Buffer,
@@ -241,6 +253,8 @@ impl Pipeline {
 pub struct Renderer {
     camera: CameraWrapper,
     mesh_pipeline: Pipeline,
+    cursor_pipeline: Pipeline,
+    mvp_buf: wgpu::Buffer,
     _mesh_resolution: u16,
 }
 
@@ -254,7 +268,9 @@ impl Renderer {
 
         // Create the vertex and index buffers
         let vertex_size = mem::size_of::<Vertex>();
-        let (vertex_data, index_data) = generate_mesh_vertices(mesh_resolution);
+
+//****************************** Setting up mesh pipeline ******************************
+        let (vertex_data, mesh_index_data) = generate_mesh_vertices(mesh_resolution);
 
         let vertex_buf_mesh = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
@@ -262,7 +278,7 @@ impl Renderer {
         );
 
         let index_buf_mesh = device
-            .create_buffer_with_data(bytemuck::cast_slice(&index_data), wgpu::BufferUsage::INDEX);
+            .create_buffer_with_data(bytemuck::cast_slice(&mesh_index_data), wgpu::BufferUsage::INDEX);
 
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -300,7 +316,7 @@ impl Renderer {
             label: None,
         });
 
-        // Create the render pipeline
+        // Create the mesh rendering pipeline
         let vs_bytes = include_bytes!("shader.vert.spv");
         let fs_bytes = include_bytes!("shader.frag.spv");
         let vs_module = device
@@ -359,17 +375,123 @@ impl Renderer {
             alpha_to_coverage_enabled: false,
         });
 
+//****************************** Setting up cursor pipeline ******************************
+        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, 0.5, 0.5);
+
+        let vertex_buf_cursor = device.create_buffer_with_data(
+            bytemuck::cast_slice(&vertex_data),
+            wgpu::BufferUsage::VERTEX,
+        );
+
+        let index_buf_cursor = device
+            .create_buffer_with_data(bytemuck::cast_slice(&cursor_index_data), wgpu::BufferUsage::INDEX);
+
+        // Create pipeline layout
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            bindings: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                },
+            ],
+        });
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            bind_group_layouts: &[&bind_group_layout],
+        });
+
+        // Create bind group
+        let cursor_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            bindings: &[
+                wgpu::Binding {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
+                },
+            ],
+            label: None,
+        });
+
+        // Create the cursor rendering pipeline
+
+        let cursor_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            layout: &pipeline_layout,
+            vertex_stage: wgpu::ProgrammableStageDescriptor {
+                module: &vs_module,
+                entry_point: "main",
+            },
+            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+                module: &fs_module,
+                entry_point: "main",
+            }),
+            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::None,
+                depth_bias: 0,
+                depth_bias_slope_scale: 0.0,
+                depth_bias_clamp: 0.0,
+            }),
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            color_states: &[wgpu::ColorStateDescriptor {
+                format: sc_desc.format,
+                color_blend: wgpu::BlendDescriptor {
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                alpha_blend: wgpu::BlendDescriptor {
+                    src_factor: wgpu::BlendFactor::One,
+                    dst_factor: wgpu::BlendFactor::One,
+                    operation: wgpu::BlendOperation::Add,
+                },
+                write_mask: wgpu::ColorWrite::ALL,
+            }],
+            depth_stencil_state: None,
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint16,
+                vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                    stride: vertex_size as wgpu::BufferAddress,
+                    step_mode: wgpu::InputStepMode::Vertex,
+                    attributes: &[
+                        // Position
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float4,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                        // Color
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float4,
+                            offset: 4 * 4,
+                            shader_location: 1,
+                        },
+                    ],
+                }],
+            },
+            sample_count: 1,
+            sample_mask: !0,
+            alpha_to_coverage_enabled: false,
+        });
+
         // Done
         Renderer {
             camera,
             mesh_pipeline: Pipeline {
                 pipeline: mesh_pipeline,
                 bind_group: mesh_bind_group,
-                uniform_buf,
                 vertex_buf: vertex_buf_mesh,
                 index_buf: index_buf_mesh,
-                index_count: index_data.len(),
+                index_count: mesh_index_data.len(),
             },
+            cursor_pipeline: Pipeline {
+                pipeline: cursor_pipeline,
+                bind_group: cursor_bind_group,
+                vertex_buf: vertex_buf_cursor,
+                index_buf: index_buf_cursor,
+                index_count: cursor_index_data.len(),
+            },
+            mvp_buf: uniform_buf,
             _mesh_resolution: mesh_resolution,
         }
     }
@@ -383,7 +505,7 @@ impl Renderer {
         self.camera.update(&event);
         let mx = self.camera.mvp_matrix(sc_desc.width as f32 / sc_desc.height as f32);
         let mx_ref = mx.as_ref();
-        queue.write_buffer(&self.mesh_pipeline.uniform_buf, 0, bytemuck::cast_slice(mx_ref));
+        queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
     }
 
     pub fn resize(
@@ -394,7 +516,7 @@ impl Renderer {
     ) {
         let mx = self.camera.mvp_matrix(sc_desc.width as f32 / sc_desc.height as f32);
         let mx_ref = mx.as_ref();
-        queue.write_buffer(&self.mesh_pipeline.uniform_buf, 0, bytemuck::cast_slice(mx_ref));
+        queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
     }
 
     pub fn render(
@@ -422,6 +544,7 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
             self.mesh_pipeline.draw(&mut rpass);
+            self.cursor_pipeline.draw(&mut rpass);
         }
 
         encoder.finish()
