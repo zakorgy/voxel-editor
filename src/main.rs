@@ -1,7 +1,3 @@
-#[macro_use]
-extern crate bitflags;
-
-mod camera;
 mod renderer;
 
 use renderer::{run_async};
