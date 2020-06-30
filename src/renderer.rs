@@ -18,6 +18,10 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
+const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
+const BLUE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
+
 pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
     log::info!("Initializing the surface...");
 
@@ -131,14 +135,20 @@ use bytemuck::{Pod, Zeroable};
 #[derive(Clone, Copy)]
 struct Vertex {
     _pos: [f32; 4],
+    _col: [f32; 4],
 }
 
 unsafe impl Pod for Vertex {}
 unsafe impl Zeroable for Vertex {}
 
-fn vertex(pos: [f32; 3]) -> Vertex {
+fn white_vertex(pos: [f32; 3]) -> Vertex {
+    vertex(pos, [1.0; 4])
+}
+
+fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     Vertex {
         _pos: [pos[0], pos[1], pos[2], 1.0],
+        _col: [col[0], col[1], col[2], col[3]],
     }
 }
 
@@ -146,40 +156,59 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
     let mut vertex_data = Vec::new();
     let mut index_data: Vec<u16> = Vec::new();
 
+    // X axis
+    vertex_data.push(vertex([0.0, 0.0, 0.0], RED));
+    index_data.push((vertex_data.len() - 1) as u16);
+    vertex_data.push(vertex([1.0, 0.0, 0.0], RED));
+    index_data.push((vertex_data.len() - 1) as u16);
+
+    // Y axis
+    vertex_data.push(vertex([0.0, 0.0, 0.0], GREEN));
+    index_data.push((vertex_data.len() - 1) as u16);
+    vertex_data.push(vertex([0.0, 1.0, 0.0], GREEN));
+    index_data.push((vertex_data.len() - 1) as u16);
+
+    // Z axis
+    vertex_data.push(vertex([0.0, 0.0, 0.0], BLUE));
+    index_data.push((vertex_data.len() - 1) as u16);
+    vertex_data.push(vertex([0.0, 0.0, 1.0], BLUE));
+    index_data.push((vertex_data.len() - 1) as u16);
+
+
     let step = 1.0 / resolution as f32;
-    for i in 0..(resolution + 1)
+    for i in 1..(resolution + 1)
     {
         // bottom
-        vertex_data.push(vertex([0.0, 0.0 + i as f32 * step, 0.0]));
+        vertex_data.push(white_vertex([0.0, 0.0 + i as f32 * step, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(vertex([1.0, 0.0 + i as f32 * step, 0.0]));
+        vertex_data.push(white_vertex([1.0, 0.0 + i as f32 * step, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
 
-        vertex_data.push(vertex([0.0 + i as f32 * step, 0.0, 0.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(vertex([0.0 + i as f32 * step, 1.0, 0.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32 * step, 1.0, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
 
         // left
-        vertex_data.push(vertex([0.0, 0.0 + i as f32 * step, 0.0]));
+        vertex_data.push(white_vertex([0.0, 0.0 + i as f32 * step, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(vertex([0.0, 0.0 + i as f32 * step, 1.0]));
+        vertex_data.push(white_vertex([0.0, 0.0 + i as f32 * step, 1.0]));
         index_data.push((vertex_data.len() - 1) as u16);
 
-        vertex_data.push(vertex([0.0, 0.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([0.0, 0.0, 0.0 + i as f32 * step]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(vertex([0.0, 1.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([0.0, 1.0, 0.0 + i as f32 * step]));
         index_data.push((vertex_data.len() - 1) as u16);
 
         // back
-        vertex_data.push(vertex([0.0 + i as f32 * step, 1.0, 0.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(vertex([0.0 + i as f32 * step, 1.0, 1.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 1.0]));
         index_data.push((vertex_data.len() - 1) as u16);
 
-        vertex_data.push(vertex([0.0, 1.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([0.0, 0.0, 0.0 + i as f32 * step]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(vertex([1.0, 1.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([1.0, 0.0, 0.0 + i as f32 * step]));
         index_data.push((vertex_data.len() - 1) as u16);
     }
 
@@ -218,8 +247,8 @@ impl Renderer {
         let mx_projection = cgmath::perspective(cgmath::Deg(45f32), aspect_ratio, 1.0, 10.0);
         //let mx_projection = cgmath::ortho(-1.0, 1.0, -1.0, 1.0, 1.0, 10.0);
         let mx_view = cgmath::Matrix4::look_at(
-            cgmath::Point3::new(1.5f32, -2.0, 2.0),
-            cgmath::Point3::new(0f32, 1.0, 0.0),
+            cgmath::Point3::new(2.5f32, 2.0, 2.0),
+            cgmath::Point3::new(0.5f32, 0.5, 0.5),
             cgmath::Vector3::unit_z(),
         );
         let mx_correction = OPENGL_TO_WGPU_MATRIX;
@@ -307,16 +336,8 @@ impl Renderer {
             primitive_topology: wgpu::PrimitiveTopology::LineList,
             color_states: &[wgpu::ColorStateDescriptor {
                 format: sc_desc.format,
-                color_blend: wgpu::BlendDescriptor {
-                    src_factor: wgpu::BlendFactor::One,
-                    dst_factor: wgpu::BlendFactor::One,
-                    operation: wgpu::BlendOperation::Add,
-                },
-                alpha_blend: wgpu::BlendDescriptor {
-                    src_factor: wgpu::BlendFactor::One,
-                    dst_factor: wgpu::BlendFactor::One,
-                    operation: wgpu::BlendOperation::Add,
-                },
+                color_blend: wgpu::BlendDescriptor::REPLACE,
+                alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
             }],
             depth_stencil_state: None,
@@ -326,10 +347,17 @@ impl Renderer {
                     stride: vertex_size as wgpu::BufferAddress,
                     step_mode: wgpu::InputStepMode::Vertex,
                     attributes: &[
+                        // Position
                         wgpu::VertexAttributeDescriptor {
                             format: wgpu::VertexFormat::Float4,
                             offset: 0,
                             shader_location: 0,
+                        },
+                        // Color
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float4,
+                            offset: 4 * 4,
+                            shader_location: 1,
                         },
                     ],
                 }],
@@ -385,8 +413,8 @@ impl Renderer {
                     store_op: wgpu::StoreOp::Store,
                     clear_color: wgpu::Color {
                         r: 0.0,
-                        g: 0.2,
-                        b: 0.3,
+                        g: 0.8,
+                        b: 1.0,
                         a: 1.0,
                     },
                 }],
