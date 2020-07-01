@@ -55,7 +55,7 @@ impl Editor {
     ) {
         log::info!("Initializing the surface...");
 
-        let instance = wgpu::Instance::new();
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
         let (size, surface) = unsafe {
             let size = window.inner_size();
             let surface = instance.create_surface(&window);
@@ -68,7 +68,7 @@ impl Editor {
                     power_preference: wgpu::PowerPreference::Default,
                     compatible_surface: Some(&surface),
                 },
-                wgpu::BackendBit::PRIMARY,
+                wgpu::UnsafeFeatures::disallow(),
             )
             .await
             .unwrap();
@@ -77,8 +77,9 @@ impl Editor {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    extensions: wgpu::Extensions::empty(),
+                    features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
+                    shader_validation: true,
                 },
                 trace_dir.ok().as_ref().map(std::path::Path::new),
             )

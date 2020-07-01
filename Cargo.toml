@@ -10,20 +10,20 @@ edition = "2018"
 package = "wgpu-core"
 version = "0.5"
 git = "https://github.com/gfx-rs/wgpu"
-rev = "ac9587e9ced5b043abad68e260cb8c9e812cffb5"
+rev = "43c67ac59c2dedaa4d78601bc460aab7c3257973"
 features = ["raw-window-handle"]
 
 [dependencies.wgt]
 package = "wgpu-types"
 version = "0.5"
 git = "https://github.com/gfx-rs/wgpu"
-rev = "ac9587e9ced5b043abad68e260cb8c9e812cffb5"
+rev = "43c67ac59c2dedaa4d78601bc460aab7c3257973"
 
 [dependencies.wgpu]
 package = "wgpu"
 version = "0.5.0"
 git = "https://github.com/gfx-rs/wgpu-rs"
-rev = "45b79a21f19cf99d56fae1153efc9e841c8ef6bb"
+rev = "0c7c3afebb12bf411d6964887b85e5fd152057f5"
 
 [dependencies.camera_controllers]
 package = "camera_controllers"
