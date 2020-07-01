@@ -5,9 +5,17 @@ use winit::{
     event_loop::ControlFlow,
 };
 
+#[derive(Eq, PartialEq)]
+enum EditorState {
+    ChangeView,
+    Draw,
+    Erase,
+}
+
 pub struct Editor {
     window: winit::window::Window,
     renderer: Renderer,
+    state: EditorState,
 }
 
 impl Editor {
@@ -16,7 +24,25 @@ impl Editor {
     }
 
     fn update(&mut self, event: winit::event::WindowEvent) {
-        self.renderer.update(event);
+        // Don't change the view if we're editing the 3d canvas
+        if let event::WindowEvent::MouseInput {
+            state,
+            button: event::MouseButton::Left,
+            ..
+        } = event {
+            match state {
+                event::ElementState::Pressed => {
+                    self.state = EditorState::Draw;
+                }
+                event::ElementState::Released => {
+                    self.state = EditorState::ChangeView;
+                }
+            }
+        };
+
+        if self.state == EditorState::ChangeView {
+            self.renderer.update_view(event);
+        }
     }
 
     fn redraw(&mut self) {
@@ -73,6 +99,7 @@ impl Editor {
         let mut editor = Editor {
             window,
             renderer,
+            state: EditorState::ChangeView,
         };
 
         let mut last_update_inst = time::Instant::now();

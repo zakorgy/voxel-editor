@@ -4,15 +4,6 @@ use wgpu;
 
 pub const DEFAULT_MESH_RESOLUTION: u16 = 16;
 
-#[cfg_attr(rustfmt, rustfmt_skip)]
-#[allow(unused)]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
-
 const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.7];
 const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
@@ -395,7 +386,7 @@ impl Renderer {
         }
     }
 
-    pub fn update(
+    pub fn update_view(
         &mut self,
         event: winit::event::WindowEvent,
     ) {
