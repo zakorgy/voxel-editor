@@ -9,12 +9,12 @@ use winit::{
 pub fn run(title: &str) {
     let event_loop = EventLoop::new();
     let mut builder = winit::window::WindowBuilder::new();
-    builder = builder.with_title(title);
+    builder = builder.with_title(title).with_inner_size(winit::dpi::LogicalSize::new(1024, 768));
     let window = builder.build(&event_loop).unwrap();
     env_logger::init();
     futures::executor::block_on(run_async(event_loop, window));
 }
 
 fn main() {
-    run("cube");
+    run("Voxel-editor");
 }
