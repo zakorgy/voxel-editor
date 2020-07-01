@@ -57,7 +57,8 @@ impl CameraWrapper {
     }
 
     /// Respond to scroll and key press/release events
-    pub fn update(&mut self, window_event: &winit::event::WindowEvent) {
+    pub fn update(&mut self, window_event: &winit::event::WindowEvent) -> bool {
+        let mut viewport_changed = false;
         match window_event {
             event::WindowEvent::KeyboardInput {
                 input:
@@ -92,12 +93,13 @@ impl CameraWrapper {
             event::WindowEvent::MouseWheel {
                 delta: event::MouseScrollDelta::LineDelta(dx, dy),
                 ..
-            } =>
-            {   if self.camera.keys.contains(Keys::ZOOM) {
+            } => {
+                if self.camera.keys.contains(Keys::ZOOM) {
                     self.camera.control_camera(-*dx, -*dy);
                 } else {
                     self.camera.control_camera(*dx * 10.0, *dy * 10.0);
                 }
+                viewport_changed = true;
             }
             event::WindowEvent::AxisMotion {
                 axis,
@@ -118,12 +120,14 @@ impl CameraWrapper {
                     _ => {}
                 }
                 if self.camera.keys.contains(Keys::ORBIT) {
-                    self.camera.control_camera(-dx / 10.0, -dy / 10.0)
+                    self.camera.control_camera(-dx / 10.0, -dy / 10.0);
+                    viewport_changed = true;
                 }
             }
             other => {
                 log::info!("Event {:?}", other);
             }
         }
+        viewport_changed
     }
 }

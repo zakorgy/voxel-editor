@@ -1,5 +1,5 @@
-mod renderer;
 mod camera;
+mod renderer;
 
 use renderer::{run_async};
 use winit::{

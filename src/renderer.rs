@@ -57,17 +57,17 @@ pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
         .await
         .unwrap();
 
-    let mut sc_desc = wgpu::SwapChainDescriptor {
+    let sc_desc = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
         format: wgpu::TextureFormat::Bgra8Unorm,
         width: size.width,
         height: size.height,
         present_mode: wgpu::PresentMode::Mailbox,
     };
-    let mut swap_chain = device.create_swap_chain(&surface, &sc_desc);
+    let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
     log::info!("Initializing the Renderer...");
-    let mut renderer = Renderer::init(&sc_desc, &device, DEFAULT_MESH_RESOLUTION);
+    let mut renderer = Renderer::init(surface, device, queue, sc_desc, swap_chain, DEFAULT_MESH_RESOLUTION);
 
     let mut last_update_inst = time::Instant::now();
 
@@ -91,10 +91,7 @@ pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
                 ..
             } => {
                 log::info!("Resizing to {:?}", size);
-                sc_desc.width = size.width;
-                sc_desc.height = size.height;
-                swap_chain = device.create_swap_chain(&surface, &sc_desc);
-                renderer.resize(&sc_desc, &device, &queue);
+                renderer.resize(size);
             }
             event::Event::WindowEvent { event, .. } => match event {
                 WindowEvent::KeyboardInput {
@@ -110,22 +107,11 @@ pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
                     *control_flow = ControlFlow::Exit;
                 }
                 _ => {
-                    renderer.update(event, &sc_desc, &queue);
+                    renderer.update(event);
                 }
             },
             event::Event::RedrawRequested(_) => {
-                let frame = match swap_chain.get_next_frame() {
-                    Ok(frame) => frame,
-                    Err(_) => {
-                        swap_chain = device.create_swap_chain(&surface, &sc_desc);
-                        swap_chain
-                            .get_next_frame()
-                            .expect("Failed to acquire next swap chain texture!")
-                    }
-                };
-
-                let command_buf = renderer.render(&frame.output, &device, &queue);
-                queue.submit(Some(command_buf));
+                renderer.render();
             }
             _ => {}
         }
@@ -253,6 +239,11 @@ impl Pipeline {
 
 pub struct Renderer {
     camera: CameraWrapper,
+    surface: wgpu::Surface,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    sc_desc: wgpu::SwapChainDescriptor,
+    swap_chain: wgpu::SwapChain,
     mesh_pipeline: Pipeline,
     cursor_pipeline: Pipeline,
     mvp_buf: wgpu::Buffer,
@@ -261,8 +252,11 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn init(
-        sc_desc: &wgpu::SwapChainDescriptor,
-        device: &wgpu::Device,
+        surface: wgpu::Surface,
+        device: wgpu::Device,
+        queue: wgpu::Queue,
+        sc_desc: wgpu::SwapChainDescriptor,
+        swap_chain: wgpu::SwapChain,
         mesh_resolution: u16,
     ) -> Self {
         use std::mem;
@@ -475,8 +469,12 @@ impl Renderer {
             alpha_to_coverage_enabled: false,
         });
 
-        // Done
         Renderer {
+            surface,
+            device,
+            queue,
+            sc_desc,
+            swap_chain,
             camera,
             mesh_pipeline: Pipeline {
                 pipeline: mesh_pipeline,
@@ -500,38 +498,44 @@ impl Renderer {
     pub fn update(
         &mut self,
         event: winit::event::WindowEvent,
-        sc_desc: &wgpu::SwapChainDescriptor,
-        queue: &wgpu::Queue,
     ) {
-        self.camera.update(&event);
-        let mx = self.camera.mvp_matrix(sc_desc.width as f32 / sc_desc.height as f32);
-        let mx_ref = mx.as_ref();
-        queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
+        let viewport_changed = self.camera.update(&event);
+        if viewport_changed {
+            let mx = self.camera.mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
+            let mx_ref = mx.as_ref();
+            self.queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
+        }
     }
 
     pub fn resize(
         &mut self,
-        sc_desc: &wgpu::SwapChainDescriptor,
-        _device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        size: winit::dpi::PhysicalSize<u32>,
     ) {
-        let mx = self.camera.mvp_matrix(sc_desc.width as f32 / sc_desc.height as f32);
+        self.sc_desc.width = size.width;
+        self.sc_desc.height = size.height;
+        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+        let mx = self.camera.mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
         let mx_ref = mx.as_ref();
-        queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
+        self.queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
     }
 
-    pub fn render(
-        &mut self,
-        frame: &wgpu::SwapChainTexture,
-        device: &wgpu::Device,
-        _queue: &wgpu::Queue,
-    ) -> wgpu::CommandBuffer {
+    pub fn render(&mut self) {
+        let frame = match self.swap_chain.get_next_frame() {
+            Ok(frame) => frame,
+            Err(_) => {
+                self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+                self.swap_chain
+                    .get_next_frame()
+                    .expect("Failed to acquire next swap chain texture!")
+            }
+        };
+
         let mut encoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+            self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
+                    attachment: &frame.output.view,
                     resolve_target: None,
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
@@ -548,6 +552,7 @@ impl Renderer {
             self.cursor_pipeline.draw(&mut rpass);
         }
 
-        encoder.finish()
+        let command_buf = encoder.finish();
+        self.queue.submit(Some(command_buf));
     }
 }
