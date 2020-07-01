@@ -93,6 +93,7 @@ pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
                 log::info!("Resizing to {:?}", size);
                 sc_desc.width = size.width;
                 sc_desc.height = size.height;
+                swap_chain = device.create_swap_chain(&surface, &sc_desc);
                 renderer.resize(&sc_desc, &device, &queue);
             }
             event::Event::WindowEvent { event, .. } => match event {
