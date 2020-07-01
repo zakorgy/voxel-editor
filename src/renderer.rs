@@ -1,14 +1,8 @@
 use crate::camera::CameraWrapper;
 use cgmath;
-use std::time;
 use wgpu;
-use winit::{
-    event::{self, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-};
 
-static DEFAULT_MESH_RESOLUTION: u16 = 16;
+pub const DEFAULT_MESH_RESOLUTION: u16 = 16;
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 #[allow(unused)]
@@ -23,100 +17,6 @@ const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.7];
 const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
 const BLUE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
-
-pub async fn run_async(event_loop: EventLoop<()>, window: Window) {
-    log::info!("Initializing the surface...");
-
-    let instance = wgpu::Instance::new();
-    let (size, surface) = unsafe {
-        let size = window.inner_size();
-        let surface = instance.create_surface(&window);
-        (size, surface)
-    };
-
-    let adapter = instance
-        .request_adapter(
-            &wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
-                compatible_surface: Some(&surface),
-            },
-            wgpu::BackendBit::PRIMARY,
-        )
-        .await
-        .unwrap();
-
-    let trace_dir = std::env::var("WGPU_TRACE");
-    let (device, queue) = adapter
-        .request_device(
-            &wgpu::DeviceDescriptor {
-                extensions: wgpu::Extensions::empty(),
-                limits: wgpu::Limits::default(),
-            },
-            trace_dir.ok().as_ref().map(std::path::Path::new),
-        )
-        .await
-        .unwrap();
-
-    let sc_desc = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        format: wgpu::TextureFormat::Bgra8Unorm,
-        width: size.width,
-        height: size.height,
-        present_mode: wgpu::PresentMode::Mailbox,
-    };
-    let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
-    log::info!("Initializing the Renderer...");
-    let mut renderer = Renderer::init(surface, device, queue, sc_desc, swap_chain, DEFAULT_MESH_RESOLUTION);
-
-    let mut last_update_inst = time::Instant::now();
-
-    log::info!("Entering render loop...");
-    event_loop.run(move |event, _, control_flow| {
-        let _ = (&instance, &adapter); // force ownership by the closure
-        *control_flow = if cfg!(feature = "metal-auto-capture") {
-            ControlFlow::Exit
-        } else {
-            ControlFlow::WaitUntil(time::Instant::now() + time::Duration::from_millis(10))
-        };
-        match event {
-            event::Event::MainEventsCleared => {
-                if last_update_inst.elapsed() > time::Duration::from_millis(20) {
-                    window.request_redraw();
-                    last_update_inst = time::Instant::now();
-                }
-            }
-            event::Event::WindowEvent {
-                event: WindowEvent::Resized(size),
-                ..
-            } => {
-                log::info!("Resizing to {:?}", size);
-                renderer.resize(size);
-            }
-            event::Event::WindowEvent { event, .. } => match event {
-                WindowEvent::KeyboardInput {
-                    input:
-                        event::KeyboardInput {
-                            virtual_keycode: Some(event::VirtualKeyCode::Escape),
-                            state: event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                }
-                | WindowEvent::CloseRequested => {
-                    *control_flow = ControlFlow::Exit;
-                }
-                _ => {
-                    renderer.update(event);
-                }
-            },
-            event::Event::RedrawRequested(_) => {
-                renderer.render();
-            }
-            _ => {}
-        }
-    });
-}
 
 use bytemuck::{Pod, Zeroable};
 

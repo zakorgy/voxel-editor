@@ -1,7 +1,8 @@
 mod camera;
+mod editor;
 mod renderer;
 
-use renderer::{run_async};
+use editor::Editor;
 use winit::{
     event_loop::EventLoop,
 };
@@ -12,7 +13,7 @@ pub fn run(title: &str) {
     builder = builder.with_title(title).with_inner_size(winit::dpi::LogicalSize::new(1024, 768));
     let window = builder.build(&event_loop).unwrap();
     env_logger::init();
-    futures::executor::block_on(run_async(event_loop, window));
+    futures::executor::block_on(Editor::run_async(event_loop, window));
 }
 
 fn main() {
