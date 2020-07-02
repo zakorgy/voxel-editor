@@ -1,4 +1,5 @@
 use crate::renderer::{Renderer, DEFAULT_MESH_RESOLUTION};
+use futures::executor::block_on;
 use std::time;
 use winit::{
     event::{self, WindowEvent},
@@ -49,7 +50,7 @@ impl Editor {
         self.renderer.render();
     }
 
-    pub async fn run_async(
+    pub fn run_editor(
         event_loop: winit::event_loop::EventLoop<()>,
         window: winit::window::Window
     ) {
@@ -62,19 +63,18 @@ impl Editor {
             (size, surface)
         };
 
-        let adapter = instance
+        let adapter = block_on(instance
             .request_adapter(
                 &wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::Default,
                     compatible_surface: Some(&surface),
                 },
                 wgpu::UnsafeFeatures::disallow(),
-            )
-            .await
+            ))
             .unwrap();
 
         let trace_dir = std::env::var("WGPU_TRACE");
-        let (device, queue) = adapter
+        let (device, queue) = block_on(adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
@@ -82,8 +82,7 @@ impl Editor {
                     shader_validation: true,
                 },
                 trace_dir.ok().as_ref().map(std::path::Path::new),
-            )
-            .await
+            ))
             .unwrap();
 
         let sc_desc = wgpu::SwapChainDescriptor {
