@@ -4,7 +4,7 @@ use winit::event;
 
 pub struct CameraWrapper {
     /// Orbiting camera implementation
-    camera: OrbitZoomCamera<f32>,
+    pub camera: OrbitZoomCamera<f32>,
 
     /// Perpective camera setting
     cam_persp: CameraPerspective<f32>,
@@ -54,6 +54,14 @@ impl CameraWrapper {
             self.camera.camera(0.0).orthogonal(),
             self.cam_persp.projection()
         )
+    }
+
+    pub fn model_view_mat(&self) -> cgmath::Matrix4<f32> {
+        self.camera.camera(0.0).orthogonal().into()
+    }
+
+    pub fn projection_mat(&self) -> cgmath::Matrix4<f32> {
+        self.cam_persp.projection().into()
     }
 
     /// Respond to scroll and key press/release events

@@ -1,3 +1,4 @@
+use cgmath::{Matrix4, Vector3, Vector4, Transform};
 use crate::renderer::{Renderer, DEFAULT_MESH_RESOLUTION};
 use futures::executor::block_on;
 use std::time;
@@ -11,6 +12,48 @@ enum EditorState {
     ChangeView,
     Draw,
     _Erase,
+}
+
+fn unproject(
+    winx: f32,
+    winy: f32,
+    winz: f32,
+    model_view: Matrix4<f32>,
+    projection: Matrix4<f32>,
+    window_size: winit::dpi::PhysicalSize<u32>,
+) -> Vector3<f32> {
+    let matrix = (projection * model_view).inverse_transform().unwrap();
+
+    let in_vec = Vector4::new(
+        (winx / window_size.width as f32) * 2.0 - 1.0,
+        ((window_size.height as f32 - winy) / window_size.height as f32) * 2.0 - 1.0,
+        2.0 * winz - 1.0,
+        1.0,
+    );
+
+    let mut out = matrix * in_vec;
+    out.w = 1.0 / out.w;
+
+    Vector3::new(out.x * out.w, out.y * out.w, out.z * out.w)
+}
+
+fn intersect(
+    ray_vector: Vector3<f32>,
+    ray_point: Vector3<f32>,
+    plane_normal: Vector3<f32>,
+    plane_point: Vector3<f32>,
+) -> Option<Vector3<f32>> {
+    use cgmath::InnerSpace;
+    let denom = ray_vector.dot(plane_normal);
+    if denom.abs() > 0.00001 {
+        let diff = ray_point - plane_point;
+        let prod1 = diff.dot(plane_normal);
+        let prod2 = prod1 / denom;
+        if prod2 >= 0.00001 {
+            return Some(ray_point - ray_vector * prod2)
+        }
+    }
+    None
 }
 
 pub struct Editor {
@@ -44,7 +87,18 @@ impl Editor {
             position,
             ..
         } = event {
-            self.renderer.update_cursor(position);
+            let world_pos_far = unproject(
+                position.x as f32,
+                position.y as f32,
+                1.0 as f32,
+                self.renderer.camera.model_view_mat(),
+                self.renderer.camera.projection_mat(),
+                self.window.inner_size(),
+            );
+
+            println!("World pos {:?}", world_pos_far);
+            self.renderer.cursor_helper(None, world_pos_far);
+            self.renderer.update_cursor(world_pos_far)
         }
 
         if self.state == EditorState::ChangeView {

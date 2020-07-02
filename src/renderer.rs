@@ -8,6 +8,7 @@ const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.7];
 const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
 const BLUE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
+const TRANSPARENT: [f32; 4] = [0.0, 0.0, 0.0, 0.0];
 
 use bytemuck::{Pod, Zeroable};
 
@@ -92,16 +93,22 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
         index_data.push((vertex_data.len() - 1) as u16);
     }
 
+    // placeholder for cursor debug line
+    vertex_data.push(vertex([0.0, 0.0, 0.0], TRANSPARENT));
+    index_data.push((vertex_data.len() - 1) as u16);
+    vertex_data.push(vertex([0.0, 0.0, 0.0], TRANSPARENT));
+    index_data.push((vertex_data.len() - 1) as u16);
+
     (vertex_data, index_data)
 }
 
-fn generate_cursor_vertices(resolution: u16, xpos: f32, ypos: f32) -> (Vec<Vertex>, Vec<u16>) {
+fn generate_cursor_vertices(resolution: u16, xpos: f32, ypos: f32, zpos: f32) -> (Vec<Vertex>, Vec<u16>) {
     let mut vertex_data = Vec::new();
     let step = 1.0 / resolution as f32;
-    vertex_data.push(vertex([xpos, ypos, 0.0], HALF_ALPHA_RED));
-    vertex_data.push(vertex([xpos + step, ypos, 0.0], HALF_ALPHA_RED));
-    vertex_data.push(vertex([xpos + step, ypos + step, 0.0], HALF_ALPHA_RED));
-    vertex_data.push(vertex([xpos, ypos + step, 0.0], HALF_ALPHA_RED));
+    vertex_data.push(vertex([xpos, ypos, zpos], HALF_ALPHA_RED));
+    vertex_data.push(vertex([xpos + step, ypos, zpos], HALF_ALPHA_RED));
+    vertex_data.push(vertex([xpos + step, ypos + step, zpos], HALF_ALPHA_RED));
+    vertex_data.push(vertex([xpos, ypos + step, zpos], HALF_ALPHA_RED));
 
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
     (vertex_data, index_data)
@@ -129,7 +136,7 @@ impl Pipeline {
 }
 
 pub struct Renderer {
-    camera: CameraWrapper,
+    pub camera: CameraWrapper,
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -138,7 +145,7 @@ pub struct Renderer {
     mesh_pipeline: Pipeline,
     cursor_pipeline: Pipeline,
     mvp_buf: wgpu::Buffer,
-    _mesh_resolution: u16,
+    mesh_resolution: u16,
 }
 
 impl Renderer {
@@ -160,11 +167,11 @@ impl Renderer {
 
         let vertex_buf_mesh = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
-            wgpu::BufferUsage::VERTEX,
+            wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
         );
 
         let index_buf_mesh = device
-            .create_buffer_with_data(bytemuck::cast_slice(&mesh_index_data), wgpu::BufferUsage::INDEX);
+            .create_buffer_with_data(bytemuck::cast_slice(&mesh_index_data), wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST);
 
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -263,7 +270,7 @@ impl Renderer {
         });
 
 //****************************** Setting up cursor pipeline ******************************
-        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, 0.5, 0.5);
+        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, 0.5, 0.5, 1.0);
 
         let vertex_buf_cursor = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
@@ -386,7 +393,7 @@ impl Renderer {
                 index_count: cursor_index_data.len(),
             },
             mvp_buf: uniform_buf,
-            _mesh_resolution: mesh_resolution,
+            mesh_resolution: mesh_resolution,
         }
     }
 
@@ -404,18 +411,44 @@ impl Renderer {
 
     pub fn update_cursor(
         &mut self,
-        cursor_pos: winit::dpi::PhysicalPosition<f64>,
+        pos: cgmath::Vector3<f32>,
     ) {
-        log::info!("Update cursor {:?}", cursor_pos);
         let (vertex_data, _) = generate_cursor_vertices(
-            self._mesh_resolution,
-            cursor_pos.x as f32 / self.sc_desc.width as f32,
-            (self.sc_desc.height as f32 - cursor_pos.y as f32) / self.sc_desc.height as f32,
+            self.mesh_resolution,
+            pos.x,
+            pos.y,
+            pos.z,
         );
         self.queue.write_buffer(
             &self.cursor_pipeline.vertex_buf,
             0,
             bytemuck::cast_slice(&vertex_data)
+        );
+    }
+
+    pub fn cursor_helper(
+        &mut self,
+        near_pos: Option<cgmath::Vector3<f32>>,
+        far_pos: cgmath::Vector3<f32>,
+    ) {
+        let (mut vertex_data, mut index_data) = generate_mesh_vertices(self.mesh_resolution);
+        for _ in 0..2 {
+            vertex_data.pop();
+            index_data.pop();
+        }
+        vertex_data.push(vertex(near_pos.unwrap_or(cgmath::Vector3::new(0.5, 0.5, 0.5)).into(), RED));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex(far_pos.into(), BLUE));
+        index_data.push((vertex_data.len() - 1) as u16);
+        self.queue.write_buffer(
+            &self.mesh_pipeline.vertex_buf,
+            0,
+            bytemuck::cast_slice(&vertex_data)
+        );
+        self.queue.write_buffer(
+            &self.mesh_pipeline.index_buf,
+            0,
+            bytemuck::cast_slice(&index_data)
         );
     }
 
