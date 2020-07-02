@@ -267,7 +267,7 @@ impl Renderer {
 
         let vertex_buf_cursor = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
-            wgpu::BufferUsage::VERTEX,
+            wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
         );
 
         let index_buf_cursor = device
@@ -400,6 +400,23 @@ impl Renderer {
             let mx_ref = mx.as_ref();
             self.queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
         }
+    }
+
+    pub fn update_cursor(
+        &mut self,
+        cursor_pos: winit::dpi::PhysicalPosition<f64>,
+    ) {
+        log::info!("Update cursor {:?}", cursor_pos);
+        let (vertex_data, _) = generate_cursor_vertices(
+            self._mesh_resolution,
+            cursor_pos.x as f32 / self.sc_desc.width as f32,
+            (self.sc_desc.height as f32 - cursor_pos.y as f32) / self.sc_desc.height as f32,
+        );
+        self.queue.write_buffer(
+            &self.cursor_pipeline.vertex_buf,
+            0,
+            bytemuck::cast_slice(&vertex_data)
+        );
     }
 
     pub fn resize(

@@ -10,7 +10,7 @@ use winit::{
 enum EditorState {
     ChangeView,
     Draw,
-    Erase,
+    _Erase,
 }
 
 pub struct Editor {
@@ -40,6 +40,12 @@ impl Editor {
                 }
             }
         };
+        if let event::WindowEvent::CursorMoved {
+            position,
+            ..
+        } = event {
+            self.renderer.update_cursor(position);
+        }
 
         if self.state == EditorState::ChangeView {
             self.renderer.update_view(event);
