@@ -108,30 +108,22 @@ impl CameraWrapper {
                     self.camera.control_camera(*dx * 10.0, *dy * 10.0);
                 }
                 viewport_changed = true;
-            }
-            event::WindowEvent::AxisMotion {
-                axis,
-                value,
+            },
+            event::WindowEvent::CursorMoved {
+                position,
                 ..
             } => {
-                let mut dx = 0.0;
-                let mut dy = 0.0;
-                match axis {
-                    0 => {
-                        dx = (*value as f32) - self.x_axis;
-                        self.x_axis = *value as f32;
-                    }
-                    1 => {
-                        dy = (*value as f32) - self.y_axis;
-                        self.y_axis = *value as f32;
-                    }
-                    _ => {}
-                }
+                let dx = position.x as f32 - self.x_axis;
+                self.x_axis = position.x as f32;
+
+                let dy = position.y as f32 - self.y_axis;
+                self.y_axis = position.y as f32;
+
                 if self.camera.keys.contains(Keys::ORBIT) {
                     self.camera.control_camera(-dx / 10.0, -dy / 10.0);
                     viewport_changed = true;
                 }
-            }
+            },
             other => {
                 log::info!("Event {:?}", other);
             }
