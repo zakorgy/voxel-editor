@@ -1,5 +1,6 @@
 mod camera;
 mod editor;
+mod geometry;
 mod renderer;
 
 use editor::Editor;

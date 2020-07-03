@@ -1,5 +1,6 @@
-use cgmath::{Matrix4, Vector3, Vector4, Transform};
+use cgmath::Vector3;
 use crate::renderer::{Renderer, DEFAULT_MESH_RESOLUTION};
+use crate::geometry::*;
 use futures::executor::block_on;
 use std::time;
 use winit::{
@@ -14,52 +15,11 @@ enum EditorState {
     _Erase,
 }
 
-fn unproject(
-    winx: f32,
-    winy: f32,
-    winz: f32,
-    model_view: Matrix4<f32>,
-    projection: Matrix4<f32>,
-    window_size: winit::dpi::PhysicalSize<u32>,
-) -> Vector3<f32> {
-    let matrix = (projection * model_view).inverse_transform().unwrap();
-
-    let in_vec = Vector4::new(
-        (winx / window_size.width as f32) * 2.0 - 1.0,
-        ((window_size.height as f32 - winy) / window_size.height as f32) * 2.0 - 1.0,
-        2.0 * winz - 1.0,
-        1.0,
-    );
-
-    let mut out = matrix * in_vec;
-    out.w = 1.0 / out.w;
-
-    Vector3::new(out.x * out.w, out.y * out.w, out.z * out.w)
-}
-
-fn intersect(
-    ray_vector: Vector3<f32>,
-    ray_point: Vector3<f32>,
-    plane_normal: Vector3<f32>,
-    plane_point: Vector3<f32>,
-) -> Option<Vector3<f32>> {
-    use cgmath::InnerSpace;
-    let denom = ray_vector.dot(plane_normal);
-    if denom.abs() > 0.00001 {
-        let diff = ray_point - plane_point;
-        let prod1 = diff.dot(plane_normal);
-        let prod2 = prod1 / denom;
-        if prod2 >= 0.00001 {
-            return Some(ray_point - ray_vector * prod2)
-        }
-    }
-    None
-}
-
 pub struct Editor {
     window: winit::window::Window,
     renderer: Renderer,
     state: EditorState,
+    cursor_pos_world: Vector3<f32>,
 }
 
 impl Editor {
@@ -87,7 +47,7 @@ impl Editor {
             position,
             ..
         } = event {
-            let world_pos_far = unproject(
+            self.cursor_pos_world = unproject(
                 position.x as f32,
                 position.y as f32,
                 1.0 as f32,
@@ -95,15 +55,79 @@ impl Editor {
                 self.renderer.camera.projection_mat(),
                 self.window.inner_size(),
             );
-
-            println!("World pos {:?}", world_pos_far);
-            self.renderer.cursor_helper(None, world_pos_far);
-            self.renderer.update_cursor(world_pos_far)
         }
 
         if self.state == EditorState::ChangeView {
             self.renderer.update_view(event);
         }
+
+        let cam_pos: Vector3<f32> = self.renderer.camera.camera.camera(0.0).position.into();
+        #[cfg(feature = "debug_ray")]
+        self.renderer.cursor_helper(Some(cam_pos), self.cursor_pos_world);
+        let cursor_ray = Ray::new(
+            cam_pos,
+            cam_pos - self.cursor_pos_world,
+        );
+
+        #[cfg(feature = "debug_ray")]
+        let mut closest_plane_name = "None";
+        let mut closest_plane = None;
+        let mut intersection_point = Vector3::new(0.0, 0.0, 0.0);
+        if let Some(point) = cursor_ray.plane_intersection(&XY_PLANE) {
+            #[cfg(feature = "debug_ray")]
+            log::debug!("XY intersects with mouse world position at {:?}", point);
+            if point.x <= 1.0 && point.x >= 0.0 &&
+                point.y <= 1.0 && point.y >= 0.0 &&
+                point.z <= 1.0 && point.z >= 0.0 {
+                    intersection_point = point;
+                    #[cfg(feature = "debug_ray")]
+                    {
+                        closest_plane_name = XY_PLANE.name;
+                    }
+                    closest_plane = Some(XY_PLANE);
+                }
+            // An aletrnative way to compute closest plane for more general cases
+            /*let dist_vec = cam_pos - point;
+            let dot = dist_vec.dot(dist_vec);
+            if dot < dist {
+                intersection_point = point;
+                closest_plane_name = "XY";
+                closest_plane = Some(XY_PLANE);
+                dist = dot;
+            }*/
+        }
+        if let Some(point) = cursor_ray.plane_intersection(&YZ_PLANE) {
+            #[cfg(feature = "debug_ray")]
+            log::debug!("YZ intersects with mouse world position at {:?}", point);
+            if point.x <= 1.0 && point.x >= 0.0 &&
+                point.y <= 1.0 && point.y >= 0.0 &&
+                point.z <= 1.0 && point.z >= 0.0 {
+                    intersection_point = point;
+                    #[cfg(feature = "debug_ray")]
+                    {
+                        closest_plane_name = YZ_PLANE.name;
+                    }
+                    closest_plane = Some(YZ_PLANE);
+                }
+        }
+        if let Some(point) = cursor_ray.plane_intersection(&XZ_PLANE) {
+            #[cfg(feature = "debug_ray")]
+            log::debug!("XZ intersects with mouse world position at {:?}", point);
+            if point.x <= 1.0 && point.x >= 0.0 &&
+                point.y <= 1.0 && point.y >= 0.0 &&
+                point.z <= 1.0 && point.z >= 0.0 {
+                    intersection_point = point;
+                    #[cfg(feature = "debug_ray")]
+                    {
+                        closest_plane_name = XZ_PLANE.name;
+                    }
+                    closest_plane = Some(XZ_PLANE);
+                }
+        }
+
+        #[cfg(feature = "debug_ray")]
+        log::debug!("Mouse intersects {:?} plane at {:?}", closest_plane_name, intersection_point);
+        self.renderer.update_cursor(intersection_point, closest_plane);
     }
 
     fn redraw(&mut self) {
@@ -160,6 +184,7 @@ impl Editor {
             window,
             renderer,
             state: EditorState::ChangeView,
+            cursor_pos_world: Vector3::new(0.0, 0.0, 0.0),
         };
 
         let mut last_update_inst = time::Instant::now();

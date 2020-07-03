@@ -1,5 +1,6 @@
 use crate::camera::CameraWrapper;
 use cgmath;
+use crate::geometry::*;
 use wgpu;
 
 pub const DEFAULT_MESH_RESOLUTION: u16 = 16;
@@ -59,7 +60,7 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
     let step = 1.0 / resolution as f32;
     for i in 1..(resolution + 1)
     {
-        // bottom
+        // back
         vertex_data.push(white_vertex([0.0, 0.0 + i as f32 * step, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
         vertex_data.push(white_vertex([1.0, 0.0 + i as f32 * step, 0.0]));
@@ -81,7 +82,7 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
         vertex_data.push(white_vertex([0.0, 1.0, 0.0 + i as f32 * step]));
         index_data.push((vertex_data.len() - 1) as u16);
 
-        // back
+        // bottom
         vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
         vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 1.0]));
@@ -94,21 +95,23 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
     }
 
     // placeholder for cursor debug line
-    vertex_data.push(vertex([0.0, 0.0, 0.0], TRANSPARENT));
-    index_data.push((vertex_data.len() - 1) as u16);
-    vertex_data.push(vertex([0.0, 0.0, 0.0], TRANSPARENT));
-    index_data.push((vertex_data.len() - 1) as u16);
+    if cfg!(feature = "debug_ray") {
+        vertex_data.push(vertex([0.0, 0.0, 0.0], TRANSPARENT));
+        index_data.push((vertex_data.len() - 1) as u16);
+        vertex_data.push(vertex([0.0, 0.0, 0.0], TRANSPARENT));
+        index_data.push((vertex_data.len() - 1) as u16);
+    }
 
     (vertex_data, index_data)
 }
 
-fn generate_cursor_vertices(resolution: u16, xpos: f32, ypos: f32, zpos: f32) -> (Vec<Vertex>, Vec<u16>) {
+fn generate_cursor_vertices(resolution: u16, pos: cgmath::Vector3<f32>, plane: Plane) -> (Vec<Vertex>, Vec<u16>) {
     let mut vertex_data = Vec::new();
     let step = 1.0 / resolution as f32;
-    vertex_data.push(vertex([xpos, ypos, zpos], HALF_ALPHA_RED));
-    vertex_data.push(vertex([xpos + step, ypos, zpos], HALF_ALPHA_RED));
-    vertex_data.push(vertex([xpos + step, ypos + step, zpos], HALF_ALPHA_RED));
-    vertex_data.push(vertex([xpos, ypos + step, zpos], HALF_ALPHA_RED));
+    vertex_data.push(vertex(pos.into(), HALF_ALPHA_RED));
+    vertex_data.push(vertex((pos + step * plane.left).into(), HALF_ALPHA_RED));
+    vertex_data.push(vertex((pos + step * plane.left + step * plane.down).into(), HALF_ALPHA_RED));
+    vertex_data.push(vertex((pos + step * plane.down).into(), HALF_ALPHA_RED));
 
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
     (vertex_data, index_data)
@@ -270,7 +273,7 @@ impl Renderer {
         });
 
 //****************************** Setting up cursor pipeline ******************************
-        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, 0.5, 0.5, 1.0);
+        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, cgmath::Vector3::new(0.5, 0.5, 0.0), XY_PLANE);
 
         let vertex_buf_cursor = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
@@ -412,20 +415,23 @@ impl Renderer {
     pub fn update_cursor(
         &mut self,
         pos: cgmath::Vector3<f32>,
+        plane: Option<Plane>,
     ) {
-        let (vertex_data, _) = generate_cursor_vertices(
-            self.mesh_resolution,
-            pos.x,
-            pos.y,
-            pos.z,
-        );
-        self.queue.write_buffer(
-            &self.cursor_pipeline.vertex_buf,
-            0,
-            bytemuck::cast_slice(&vertex_data)
-        );
+        if let Some(plane) = plane {
+            let (vertex_data, _) = generate_cursor_vertices(
+                self.mesh_resolution,
+                pos,
+                plane,
+            );
+            self.queue.write_buffer(
+                &self.cursor_pipeline.vertex_buf,
+                0,
+                bytemuck::cast_slice(&vertex_data)
+            );
+        }
     }
 
+    #[cfg(feature = "debug_ray")]
     pub fn cursor_helper(
         &mut self,
         near_pos: Option<cgmath::Vector3<f32>>,
