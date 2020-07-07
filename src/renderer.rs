@@ -27,6 +27,10 @@ fn white_vertex(pos: [f32; 3]) -> Vertex {
     vertex(pos, [1.0; 4])
 }
 
+fn half_red_vertex(pos: [f32; 3]) -> Vertex {
+    vertex(pos, HALF_ALPHA_RED)
+}
+
 fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     Vertex {
         _pos: [pos[0], pos[1], pos[2], 1.0],
@@ -110,12 +114,21 @@ fn generate_cursor_vertices(resolution: u16, pos: cgmath::Vector3<f32>, plane: &
     let step = 1.0 / resolution as f32;
     let multiplied = pos * resolution as f32;
     let grid_pos = cgmath::Vector3::new(multiplied.x.floor(), multiplied.y.ceil(), multiplied.z.ceil()) * step;
-    vertex_data.push(vertex(grid_pos.into(), HALF_ALPHA_RED));
-    vertex_data.push(vertex((grid_pos + step * plane.left).into(), HALF_ALPHA_RED));
-    vertex_data.push(vertex((grid_pos + step * plane.left + step * plane.down).into(), HALF_ALPHA_RED));
-    vertex_data.push(vertex((grid_pos + step * plane.down).into(), HALF_ALPHA_RED));
+    /*0*/ vertex_data.push(half_red_vertex(grid_pos.into()));
+    /*1*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left).into()));
+    /*2*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down).into()));
+    /*3*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down).into()));
+    /*4*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
+    /*5*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
+    /*6*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
+    /*8*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
 
-    let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
+    let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0,
+                                    0, 1, 4, 4, 5, 1,
+                                    2, 1, 5, 5, 6, 2,
+                                    3, 2, 6, 6, 7, 3,
+                                    3, 0, 4, 4, 7, 3,
+                                    4, 5, 6, 6, 7, 4];
     (vertex_data, index_data)
 }
 
