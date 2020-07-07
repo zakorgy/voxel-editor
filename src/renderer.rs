@@ -108,10 +108,12 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
 fn generate_cursor_vertices(resolution: u16, pos: cgmath::Vector3<f32>, plane: &Plane) -> (Vec<Vertex>, Vec<u16>) {
     let mut vertex_data = Vec::new();
     let step = 1.0 / resolution as f32;
-    vertex_data.push(vertex(pos.into(), HALF_ALPHA_RED));
-    vertex_data.push(vertex((pos + step * plane.left).into(), HALF_ALPHA_RED));
-    vertex_data.push(vertex((pos + step * plane.left + step * plane.down).into(), HALF_ALPHA_RED));
-    vertex_data.push(vertex((pos + step * plane.down).into(), HALF_ALPHA_RED));
+    let multiplied = pos * resolution as f32;
+    let grid_pos = cgmath::Vector3::new(multiplied.x.floor(), multiplied.y.ceil(), multiplied.z.ceil()) * step;
+    vertex_data.push(vertex(grid_pos.into(), HALF_ALPHA_RED));
+    vertex_data.push(vertex((grid_pos + step * plane.left).into(), HALF_ALPHA_RED));
+    vertex_data.push(vertex((grid_pos + step * plane.left + step * plane.down).into(), HALF_ALPHA_RED));
+    vertex_data.push(vertex((grid_pos + step * plane.down).into(), HALF_ALPHA_RED));
 
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
     (vertex_data, index_data)
@@ -146,6 +148,7 @@ pub struct Renderer {
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     mesh_pipeline: Pipeline,
+    render_cursor: bool,
     cursor_pipeline: Pipeline,
     mvp_buf: wgpu::Buffer,
     mesh_resolution: u16,
@@ -395,6 +398,7 @@ impl Renderer {
                 index_buf: index_buf_cursor,
                 index_count: cursor_index_data.len(),
             },
+            render_cursor: true,
             mvp_buf: uniform_buf,
             mesh_resolution: mesh_resolution,
         }
@@ -428,6 +432,9 @@ impl Renderer {
                 0,
                 bytemuck::cast_slice(&vertex_data)
             );
+            self.render_cursor = true;
+        } else {
+            self.render_cursor = false;
         }
     }
 
@@ -501,7 +508,9 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
             self.mesh_pipeline.draw(&mut rpass);
-            self.cursor_pipeline.draw(&mut rpass);
+            if self.render_cursor {
+                self.cursor_pipeline.draw(&mut rpass);
+            }
         }
 
         let command_buf = encoder.finish();

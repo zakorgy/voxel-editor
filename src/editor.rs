@@ -81,6 +81,18 @@ impl Editor {
                     point.y <= 1.0 && point.y >= 0.0 &&
                     point.z <= 1.0 && point.z >= 0.0 {
                         intersection_point = point;
+
+                        // Workaround for really small floating point coordinates can cause stuttering in the cursor movement
+                        if intersection_point.x < EPSYLON {
+                            intersection_point.x = 0.0;
+                        }
+                        if intersection_point.y < EPSYLON {
+                            intersection_point.y = 0.0;
+                        }
+                        if intersection_point.z < EPSYLON {
+                            intersection_point.z = 0.0;
+                        }
+
                         #[cfg(feature = "debug_ray")]
                         {
                             closest_plane_name = plane.name;

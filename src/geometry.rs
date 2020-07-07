@@ -1,5 +1,7 @@
 use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 
+pub const EPSYLON: f32 = 0.000001;
+
 pub struct Plane {
     pub point: Vector3<f32>,
     pub normal: Vector3<f32>,
@@ -57,10 +59,10 @@ impl Ray {
         plane: &Plane,
     ) -> Option<Vector3<f32>> {
         let dist_square = self.vector.dot(plane.normal);
-        if dist_square.abs() > 0.00001 {
+        if dist_square.abs() > EPSYLON {
             let diff = self.point - plane.point;
             let dist_square2 = diff.dot(plane.normal) / dist_square;
-            if dist_square2 >= 0.00001 {
+            if dist_square2 >= EPSYLON {
                 return Some(self.point - self.vector * dist_square2)
             }
         }
