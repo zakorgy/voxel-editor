@@ -105,7 +105,7 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data, index_data)
 }
 
-fn generate_cursor_vertices(resolution: u16, pos: cgmath::Vector3<f32>, plane: Plane) -> (Vec<Vertex>, Vec<u16>) {
+fn generate_cursor_vertices(resolution: u16, pos: cgmath::Vector3<f32>, plane: &Plane) -> (Vec<Vertex>, Vec<u16>) {
     let mut vertex_data = Vec::new();
     let step = 1.0 / resolution as f32;
     vertex_data.push(vertex(pos.into(), HALF_ALPHA_RED));
@@ -273,7 +273,7 @@ impl Renderer {
         });
 
 //****************************** Setting up cursor pipeline ******************************
-        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, cgmath::Vector3::new(0.5, 0.5, 0.0), XY_PLANE);
+        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, cgmath::Vector3::new(0.5, 0.5, 0.0), &XY_PLANE);
 
         let vertex_buf_cursor = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
@@ -415,7 +415,7 @@ impl Renderer {
     pub fn update_cursor(
         &mut self,
         pos: cgmath::Vector3<f32>,
-        plane: Option<Plane>,
+        plane: Option<&Plane>,
     ) {
         if let Some(plane) = plane {
             let (vertex_data, _) = generate_cursor_vertices(

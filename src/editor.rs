@@ -73,56 +73,29 @@ impl Editor {
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
         let mut intersection_point = Vector3::new(0.0, 0.0, 0.0);
-        if let Some(point) = cursor_ray.plane_intersection(&XY_PLANE) {
-            #[cfg(feature = "debug_ray")]
-            log::debug!("XY intersects with mouse world position at {:?}", point);
-            if point.x <= 1.0 && point.x >= 0.0 &&
-                point.y <= 1.0 && point.y >= 0.0 &&
-                point.z <= 1.0 && point.z >= 0.0 {
-                    intersection_point = point;
-                    #[cfg(feature = "debug_ray")]
-                    {
-                        closest_plane_name = XY_PLANE.name;
+        for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
+            if let Some(point) = cursor_ray.plane_intersection(plane) {
+                #[cfg(feature = "debug_ray")]
+                log::debug!("{:?} intersects with mouse world position at {:?}", plane.name, point);
+                if point.x <= 1.0 && point.x >= 0.0 &&
+                    point.y <= 1.0 && point.y >= 0.0 &&
+                    point.z <= 1.0 && point.z >= 0.0 {
+                        intersection_point = point;
+                        #[cfg(feature = "debug_ray")]
+                        {
+                            closest_plane_name = plane.name;
+                        }
+                        closest_plane = Some(plane);
+                        break;
                     }
-                    closest_plane = Some(XY_PLANE);
-                }
-            // An aletrnative way to compute closest plane for more general cases
-            /*let dist_vec = cam_pos - point;
-            let dot = dist_vec.dot(dist_vec);
-            if dot < dist {
-                intersection_point = point;
-                closest_plane_name = "XY";
-                closest_plane = Some(XY_PLANE);
-                dist = dot;
-            }*/
-        }
-        if let Some(point) = cursor_ray.plane_intersection(&YZ_PLANE) {
-            #[cfg(feature = "debug_ray")]
-            log::debug!("YZ intersects with mouse world position at {:?}", point);
-            if point.x <= 1.0 && point.x >= 0.0 &&
-                point.y <= 1.0 && point.y >= 0.0 &&
-                point.z <= 1.0 && point.z >= 0.0 {
+                // An aletrnative way to compute closest plane for more general cases using a dist variable
+                /*let dist_vec = cam_pos - point;
+                let dot = dist_vec.dot(dist_vec);
+                if dot < dist {
                     intersection_point = point;
-                    #[cfg(feature = "debug_ray")]
-                    {
-                        closest_plane_name = YZ_PLANE.name;
-                    }
-                    closest_plane = Some(YZ_PLANE);
-                }
-        }
-        if let Some(point) = cursor_ray.plane_intersection(&XZ_PLANE) {
-            #[cfg(feature = "debug_ray")]
-            log::debug!("XZ intersects with mouse world position at {:?}", point);
-            if point.x <= 1.0 && point.x >= 0.0 &&
-                point.y <= 1.0 && point.y >= 0.0 &&
-                point.z <= 1.0 && point.z >= 0.0 {
-                    intersection_point = point;
-                    #[cfg(feature = "debug_ray")]
-                    {
-                        closest_plane_name = XZ_PLANE.name;
-                    }
-                    closest_plane = Some(XZ_PLANE);
-                }
+                    dist = dot;
+                }*/
+            }
         }
 
         #[cfg(feature = "debug_ray")]
