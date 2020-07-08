@@ -6,7 +6,7 @@ use wgpu;
 pub const DEFAULT_MESH_RESOLUTION: u16 = 16;
 
 const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
-const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.7];
+const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.2];
 const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
 const BLUE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
 const TRANSPARENT: [f32; 4] = [0.0, 0.0, 0.0, 0.0];
@@ -114,21 +114,43 @@ fn generate_cursor_vertices(resolution: u16, pos: cgmath::Vector3<f32>, plane: &
     let step = 1.0 / resolution as f32;
     let multiplied = pos * resolution as f32;
     let grid_pos = cgmath::Vector3::new(multiplied.x.floor(), multiplied.y.ceil(), multiplied.z.ceil()) * step;
+
     /*0*/ vertex_data.push(half_red_vertex(grid_pos.into()));
     /*1*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left).into()));
     /*2*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down).into()));
     /*3*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down).into()));
-    /*4*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
-    /*5*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
-    /*6*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
-    /*8*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
+
+    /*4*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left).into()));
+    /*5*/ vertex_data.push(half_red_vertex(grid_pos.into()));
+    /*6*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
+    /*7*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
+
+    /*9*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down).into()));
+    /*8*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left).into()));
+    /*10*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
+    /*11*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
+
+    /*12*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down).into()));
+    /*13*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down).into()));
+    /*14*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
+    /*15*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
+
+    /*16*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down).into()));
+    /*17*/ vertex_data.push(half_red_vertex(grid_pos.into()));
+    /*18*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
+    /*19*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
+
+    /*20*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
+    /*21*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
+    /*22*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
+    /*23*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
 
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0,
-                                    0, 1, 4, 4, 5, 1,
-                                    2, 1, 5, 5, 6, 2,
-                                    3, 2, 6, 6, 7, 3,
-                                    3, 0, 4, 4, 7, 3,
-                                    4, 5, 6, 6, 7, 4];
+                                    4, 5, 6, 6, 7, 4,
+                                    8, 9, 10, 10, 11, 8,
+                                    12, 13, 14, 14, 15, 12,
+                                    16, 17, 18, 18, 19, 16,
+                                    20, 21, 22, 22, 23, 20];
     (vertex_data, index_data)
 }
 
@@ -357,8 +379,8 @@ impl Renderer {
                     operation: wgpu::BlendOperation::Add,
                 },
                 alpha_blend: wgpu::BlendDescriptor {
-                    src_factor: wgpu::BlendFactor::One,
-                    dst_factor: wgpu::BlendFactor::One,
+                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
                     operation: wgpu::BlendOperation::Add,
                 },
                 write_mask: wgpu::ColorWrite::ALL,
