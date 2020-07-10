@@ -92,3 +92,77 @@ pub fn unproject(
 
     Vector3::new(out.x * out.w, out.y * out.w, out.z * out.w)
 }
+
+pub struct Cuboid {
+    pub corner: Vector3<f32>,
+    pub extent: Vector3<f32>,
+}
+
+impl Cuboid {
+    pub fn corner_points(&self) -> [Vector3<f32>; 8] {
+        [
+            self.corner,
+            self.corner + Vector3::new(self.extent.x, 0.0, 0.0),
+            self.corner + Vector3::new(self.extent.x, self.extent.y, 0.0),
+            self.corner + Vector3::new(0.0, self.extent.y, 0.0),
+
+            self.corner + Vector3::new(0.0, 0.0, self.extent.z),
+            self.corner + Vector3::new(self.extent.x, 0.0, self.extent.z),
+            self.corner + Vector3::new(self.extent.x, self.extent.y, self.extent.z),
+            self.corner + Vector3::new(0.0, self.extent.y, self.extent.z),
+        ]
+    }
+
+    fn manhattan_distance(
+        start: &Vector3<f32>,
+        end: &Vector3<f32>,
+    ) -> f32 {
+        (start.x - end.x).abs() + (start.y - end.y).abs() + (start.z - end.z).abs()
+    }
+
+    fn outermost_points(
+        &self,
+        other: &Self,
+    ) -> (Vector3<f32>, Vector3<f32>) {
+        let mut distance = 0.0;
+        let mut outermost_points = (Vector3::unit_x(), Vector3::unit_x());
+        for x in self.corner_points().iter() {
+            for y in other.corner_points().iter() {
+                let manhattan_dist = Self::manhattan_distance(x, y);
+                if manhattan_dist > distance {
+                    outermost_points = (*x, *y);
+                    distance = manhattan_dist;
+                }
+            }
+        }
+        outermost_points
+    }
+
+    fn from_corner_points(
+        point1: Vector3<f32>,
+        point2: Vector3<f32>,
+    ) -> Self {
+        Cuboid {
+            corner: point1,
+            extent: point2 - point1,
+        }
+    }
+
+    pub fn containing_cube(
+        &self,
+        other: &Self,
+    ) -> Self {
+        let (point1, point2) = self.outermost_points(other);
+        Self::from_corner_points(point1, point2)
+    }
+
+    pub fn new(
+        corner: Vector3<f32>,
+        extent: Vector3<f32>,
+    ) -> Self {
+        Cuboid {
+            corner,
+            extent,
+        }
+    }
+}

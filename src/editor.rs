@@ -112,7 +112,13 @@ impl Editor {
 
         #[cfg(feature = "debug_ray")]
         log::debug!("Mouse intersects {:?} plane at {:?}", closest_plane_name, intersection_point);
-        self.renderer.update_cursor(intersection_point, closest_plane);
+        if self.state == EditorState::ChangeView {
+            self.renderer.update_cursor_pos(intersection_point, closest_plane);
+        } else if self.state == EditorState::Draw {
+            self.renderer.update_draw_rectangle(intersection_point, closest_plane);
+        } else {
+            self.renderer.update_cursor_pos(intersection_point, None);
+        }
     }
 
     fn redraw(&mut self) {

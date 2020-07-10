@@ -109,49 +109,53 @@ fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data, index_data)
 }
 
-fn generate_cursor_vertices(resolution: u16, pos: cgmath::Vector3<f32>, plane: &Plane) -> (Vec<Vertex>, Vec<u16>) {
-    let mut vertex_data = Vec::new();
-    let step = 1.0 / resolution as f32;
-    let multiplied = pos * resolution as f32;
-    let grid_pos = cgmath::Vector3::new(multiplied.x.floor(), multiplied.y.ceil(), multiplied.z.ceil()) * step;
+impl Cuboid {
+    fn vertices(&self) -> Vec<Vertex> {
+        let mut vertex_data = Vec::new();
+        let corner_points = self.corner_points();
 
-    /*0*/ vertex_data.push(half_red_vertex(grid_pos.into()));
-    /*1*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left).into()));
-    /*2*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down).into()));
-    /*3*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down).into()));
+        /*0*/ vertex_data.push(half_red_vertex(corner_points[0].into()));
+        /*1*/ vertex_data.push(half_red_vertex(corner_points[1].into()));
+        /*2*/ vertex_data.push(half_red_vertex(corner_points[2].into()));
+        /*3*/ vertex_data.push(half_red_vertex(corner_points[3].into()));
 
-    /*4*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left).into()));
-    /*5*/ vertex_data.push(half_red_vertex(grid_pos.into()));
-    /*6*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
-    /*7*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
+        /*4*/ vertex_data.push(half_red_vertex(corner_points[1].into()));
+        /*5*/ vertex_data.push(half_red_vertex(corner_points[0].into()));
+        /*6*/ vertex_data.push(half_red_vertex(corner_points[4].into()));
+        /*7*/ vertex_data.push(half_red_vertex(corner_points[5].into()));
 
-    /*9*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down).into()));
-    /*8*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left).into()));
-    /*10*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
-    /*11*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
+        /*9*/ vertex_data.push(half_red_vertex(corner_points[2].into()));
+        /*8*/ vertex_data.push(half_red_vertex(corner_points[1].into()));
+        /*10*/ vertex_data.push(half_red_vertex(corner_points[5].into()));
+        /*11*/ vertex_data.push(half_red_vertex(corner_points[6].into()));
 
-    /*12*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down).into()));
-    /*13*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down).into()));
-    /*14*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
-    /*15*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
+        /*12*/ vertex_data.push(half_red_vertex(corner_points[3].into()));
+        /*13*/ vertex_data.push(half_red_vertex(corner_points[2].into()));
+        /*14*/ vertex_data.push(half_red_vertex(corner_points[6].into()));
+        /*15*/ vertex_data.push(half_red_vertex(corner_points[7].into()));
 
-    /*16*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down).into()));
-    /*17*/ vertex_data.push(half_red_vertex(grid_pos.into()));
-    /*18*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
-    /*19*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
+        /*16*/ vertex_data.push(half_red_vertex(corner_points[3].into()));
+        /*17*/ vertex_data.push(half_red_vertex(corner_points[0].into()));
+        /*18*/ vertex_data.push(half_red_vertex(corner_points[4].into()));
+        /*19*/ vertex_data.push(half_red_vertex(corner_points[7].into()));
 
-    /*20*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.normal).into()));
-    /*21*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.normal).into()));
-    /*22*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.left + step * plane.down + step * plane.normal).into()));
-    /*23*/ vertex_data.push(half_red_vertex((grid_pos + step * plane.down + step * plane.normal).into()));
+        /*20*/ vertex_data.push(half_red_vertex(corner_points[4].into()));
+        /*21*/ vertex_data.push(half_red_vertex(corner_points[5].into()));
+        /*22*/ vertex_data.push(half_red_vertex(corner_points[6].into()));
+        /*23*/ vertex_data.push(half_red_vertex(corner_points[7].into()));
 
+        vertex_data
+    }
+}
+
+fn generate_cursor_vertices(cuboid: &Cuboid) -> (Vec<Vertex>, Vec<u16>) {
     let index_data: Vec<u16> = vec![0, 1, 2, 2, 3, 0,
                                     4, 5, 6, 6, 7, 4,
                                     8, 9, 10, 10, 11, 8,
                                     12, 13, 14, 14, 15, 12,
                                     16, 17, 18, 18, 19, 16,
                                     20, 21, 22, 22, 23, 20];
-    (vertex_data, index_data)
+    (cuboid.vertices(), index_data)
 }
 
 struct Pipeline {
@@ -185,6 +189,7 @@ pub struct Renderer {
     mesh_pipeline: Pipeline,
     render_cursor: bool,
     cursor_pipeline: Pipeline,
+    cursor_cube: Cuboid,
     mvp_buf: wgpu::Buffer,
     mesh_resolution: u16,
 }
@@ -311,7 +316,11 @@ impl Renderer {
         });
 
 //****************************** Setting up cursor pipeline ******************************
-        let (vertex_data, cursor_index_data) = generate_cursor_vertices(mesh_resolution, cgmath::Vector3::new(0.5, 0.5, 0.0), &XY_PLANE);
+        let cursor_cube = Cuboid::new(
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            (XY_PLANE.left + XY_PLANE.down + XY_PLANE.normal) / mesh_resolution as f32,
+        );
+        let (vertex_data, cursor_index_data) = generate_cursor_vertices(&cursor_cube);
 
         let vertex_buf_cursor = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
@@ -319,7 +328,7 @@ impl Renderer {
         );
 
         let index_buf_cursor = device
-            .create_buffer_with_data(bytemuck::cast_slice(&cursor_index_data), wgpu::BufferUsage::INDEX);
+            .create_buffer_with_data(bytemuck::cast_slice(&cursor_index_data), wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST);
 
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -433,6 +442,7 @@ impl Renderer {
                 index_buf: index_buf_cursor,
                 index_count: cursor_index_data.len(),
             },
+            cursor_cube,
             render_cursor: true,
             mvp_buf: uniform_buf,
             mesh_resolution: mesh_resolution,
@@ -451,17 +461,49 @@ impl Renderer {
         }
     }
 
-    pub fn update_cursor(
+    fn get_grid_pos(
+        world_pos: cgmath::Vector3<f32>,
+        resolution: f32,
+    ) -> cgmath::Vector3<f32> {
+        let step = 1.0 / resolution;
+        let multiplied = world_pos * resolution;
+        cgmath::Vector3::new(multiplied.x.floor(), multiplied.y.ceil(), multiplied.z.ceil()) * step
+    }
+
+    pub fn update_cursor_pos(
         &mut self,
         pos: cgmath::Vector3<f32>,
         plane: Option<&Plane>,
     ) {
         if let Some(plane) = plane {
-            let (vertex_data, _) = generate_cursor_vertices(
-                self.mesh_resolution,
-                pos,
-                plane,
+            self.cursor_cube = Cuboid::new(
+                Self::get_grid_pos(pos, self.mesh_resolution as f32),
+                (plane.left + plane.down + plane.normal) / self.mesh_resolution as f32,
             );
+            let vertex_data = self.cursor_cube.vertices();
+            self.queue.write_buffer(
+                &self.cursor_pipeline.vertex_buf,
+                0,
+                bytemuck::cast_slice(&vertex_data)
+            );
+            self.render_cursor = true;
+        } else {
+            self.render_cursor = false;
+        }
+    }
+
+    pub fn update_draw_rectangle(
+        &mut self,
+        pos: cgmath::Vector3<f32>,
+        plane: Option<&Plane>,
+    ) {
+        if let Some(plane) = plane {
+            let end_cube = Cuboid::new(
+                Self::get_grid_pos(pos, self.mesh_resolution as f32),
+                (plane.left + plane.down + plane.normal) / self.mesh_resolution as f32,
+            );
+            let draw_cube = self.cursor_cube.containing_cube(&end_cube);
+            let vertex_data = draw_cube.vertices();
             self.queue.write_buffer(
                 &self.cursor_pipeline.vertex_buf,
                 0,
