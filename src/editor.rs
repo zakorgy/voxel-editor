@@ -1,5 +1,5 @@
 use cgmath::Vector3;
-use crate::renderer::{Renderer, DEFAULT_MESH_RESOLUTION};
+use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
 use crate::geometry::*;
 use futures::executor::block_on;
 use std::time;
@@ -73,13 +73,14 @@ impl Editor {
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
         let mut intersection_point = Vector3::new(0.0, 0.0, 0.0);
+        let mesh_count = self.renderer.mesh_count as f32;
         for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
             if let Some(point) = cursor_ray.plane_intersection(plane) {
                 #[cfg(feature = "debug_ray")]
                 log::debug!("{:?} intersects with mouse world position at {:?}", plane.name, point);
-                if point.x <= 1.0 && point.x >= 0.0 &&
-                    point.y <= 1.0 && point.y >= 0.0 &&
-                    point.z <= 1.0 && point.z >= 0.0 {
+                if point.x <= mesh_count && point.x >= 0.0 &&
+                    point.y <= mesh_count && point.y >= 0.0 &&
+                    point.z <= mesh_count && point.z >= 0.0 {
                         intersection_point = point;
 
                         // Workaround for really small floating point coordinates can cause stuttering in the cursor movement
@@ -170,7 +171,7 @@ impl Editor {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         log::info!("Initializing the Renderer...");
-        let renderer = Renderer::init(surface, device, queue, sc_desc, swap_chain, DEFAULT_MESH_RESOLUTION);
+        let renderer = Renderer::init(surface, device, queue, sc_desc, swap_chain, DEFAULT_MESH_COUNT);
         let mut editor = Editor {
             window,
             renderer,

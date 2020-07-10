@@ -3,7 +3,7 @@ use cgmath;
 use crate::geometry::*;
 use wgpu;
 
-pub const DEFAULT_MESH_RESOLUTION: u16 = 16;
+pub const DEFAULT_MESH_COUNT: u16 = 16;
 
 const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.2];
@@ -38,63 +38,62 @@ fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     }
 }
 
-fn generate_mesh_vertices(resolution: u16) -> (Vec<Vertex>, Vec<u16>) {
+fn generate_mesh_vertices(meshes: u16) -> (Vec<Vertex>, Vec<u16>) {
     let mut vertex_data = Vec::new();
     let mut index_data: Vec<u16> = Vec::new();
+    let mesh_count = meshes as f32;
 
     // X axis
     vertex_data.push(vertex([0.0, 0.0, 0.0], RED));
     index_data.push((vertex_data.len() - 1) as u16);
-    vertex_data.push(vertex([1.0, 0.0, 0.0], RED));
+    vertex_data.push(vertex([mesh_count, 0.0, 0.0], RED));
     index_data.push((vertex_data.len() - 1) as u16);
 
     // Y axis
     vertex_data.push(vertex([0.0, 0.0, 0.0], GREEN));
     index_data.push((vertex_data.len() - 1) as u16);
-    vertex_data.push(vertex([0.0, 1.0, 0.0], GREEN));
+    vertex_data.push(vertex([0.0, mesh_count, 0.0], GREEN));
     index_data.push((vertex_data.len() - 1) as u16);
 
     // Z axis
     vertex_data.push(vertex([0.0, 0.0, 0.0], BLUE));
     index_data.push((vertex_data.len() - 1) as u16);
-    vertex_data.push(vertex([0.0, 0.0, 1.0], BLUE));
+    vertex_data.push(vertex([0.0, 0.0, mesh_count], BLUE));
     index_data.push((vertex_data.len() - 1) as u16);
 
-
-    let step = 1.0 / resolution as f32;
-    for i in 1..(resolution + 1)
+    for i in 1..(meshes + 1)
     {
         // back
-        vertex_data.push(white_vertex([0.0, 0.0 + i as f32 * step, 0.0]));
+        vertex_data.push(white_vertex([0.0, 0.0 + i as f32, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(white_vertex([1.0, 0.0 + i as f32 * step, 0.0]));
+        vertex_data.push(white_vertex([mesh_count, 0.0 + i as f32, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
 
-        vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 0.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32, 0.0, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(white_vertex([0.0 + i as f32 * step, 1.0, 0.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32, mesh_count, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
 
         // left
-        vertex_data.push(white_vertex([0.0, 0.0 + i as f32 * step, 0.0]));
+        vertex_data.push(white_vertex([0.0, 0.0 + i as f32, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(white_vertex([0.0, 0.0 + i as f32 * step, 1.0]));
+        vertex_data.push(white_vertex([0.0, 0.0 + i as f32, mesh_count]));
         index_data.push((vertex_data.len() - 1) as u16);
 
-        vertex_data.push(white_vertex([0.0, 0.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([0.0, 0.0, 0.0 + i as f32]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(white_vertex([0.0, 1.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([0.0, mesh_count, 0.0 + i as f32]));
         index_data.push((vertex_data.len() - 1) as u16);
 
         // bottom
-        vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 0.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32, 0.0, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(white_vertex([0.0 + i as f32 * step, 0.0, 1.0]));
+        vertex_data.push(white_vertex([0.0 + i as f32, 0.0, mesh_count]));
         index_data.push((vertex_data.len() - 1) as u16);
 
-        vertex_data.push(white_vertex([0.0, 0.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([0.0, 0.0, 0.0 + i as f32]));
         index_data.push((vertex_data.len() - 1) as u16);
-        vertex_data.push(white_vertex([1.0, 0.0, 0.0 + i as f32 * step]));
+        vertex_data.push(white_vertex([mesh_count, 0.0, 0.0 + i as f32]));
         index_data.push((vertex_data.len() - 1) as u16);
     }
 
@@ -191,7 +190,7 @@ pub struct Renderer {
     cursor_pipeline: Pipeline,
     cursor_cube: Cuboid,
     mvp_buf: wgpu::Buffer,
-    mesh_resolution: u16,
+    pub mesh_count: u16,
 }
 
 impl Renderer {
@@ -201,7 +200,7 @@ impl Renderer {
         queue: wgpu::Queue,
         sc_desc: wgpu::SwapChainDescriptor,
         swap_chain: wgpu::SwapChain,
-        mesh_resolution: u16,
+        mesh_count: u16,
     ) -> Self {
         use std::mem;
 
@@ -209,7 +208,7 @@ impl Renderer {
         let vertex_size = mem::size_of::<Vertex>();
 
 //****************************** Setting up mesh pipeline ******************************
-        let (vertex_data, mesh_index_data) = generate_mesh_vertices(mesh_resolution);
+        let (vertex_data, mesh_index_data) = generate_mesh_vertices(mesh_count);
 
         let vertex_buf_mesh = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertex_data),
@@ -237,7 +236,7 @@ impl Renderer {
             bind_group_layouts: &[&bind_group_layout],
         });
 
-        let mut camera = CameraWrapper::new(sc_desc.width as f32 / sc_desc.height as f32);
+        let mut camera = CameraWrapper::new(sc_desc.width as f32 / sc_desc.height as f32, mesh_count as f32);
 
         let mx = camera.mvp_matrix(sc_desc.width as f32 / sc_desc.height as f32);
         let mx_ref = mx.as_ref();
@@ -318,7 +317,7 @@ impl Renderer {
 //****************************** Setting up cursor pipeline ******************************
         let cursor_cube = Cuboid::new(
             cgmath::Vector3::new(0.0, 0.0, 0.0),
-            (XY_PLANE.left + XY_PLANE.down + XY_PLANE.normal) / mesh_resolution as f32,
+            XY_PLANE.left + XY_PLANE.down + XY_PLANE.normal,
         );
         let (vertex_data, cursor_index_data) = generate_cursor_vertices(&cursor_cube);
 
@@ -445,7 +444,7 @@ impl Renderer {
             cursor_cube,
             render_cursor: true,
             mvp_buf: uniform_buf,
-            mesh_resolution: mesh_resolution,
+            mesh_count,
         }
     }
 
@@ -462,12 +461,9 @@ impl Renderer {
     }
 
     fn get_grid_pos(
-        world_pos: cgmath::Vector3<f32>,
-        resolution: f32,
+        world_pos: cgmath::Vector3<f32>
     ) -> cgmath::Vector3<f32> {
-        let step = 1.0 / resolution;
-        let multiplied = world_pos * resolution;
-        cgmath::Vector3::new(multiplied.x.floor(), multiplied.y.ceil(), multiplied.z.ceil()) * step
+        cgmath::Vector3::new(world_pos.x.floor(), world_pos.y.ceil(), world_pos.z.ceil())
     }
 
     pub fn update_cursor_pos(
@@ -477,8 +473,8 @@ impl Renderer {
     ) {
         if let Some(plane) = plane {
             self.cursor_cube = Cuboid::new(
-                Self::get_grid_pos(pos, self.mesh_resolution as f32),
-                (plane.left + plane.down + plane.normal) / self.mesh_resolution as f32,
+                Self::get_grid_pos(pos),
+                plane.left + plane.down + plane.normal,
             );
             let vertex_data = self.cursor_cube.vertices();
             self.queue.write_buffer(
@@ -499,8 +495,8 @@ impl Renderer {
     ) {
         if let Some(plane) = plane {
             let end_cube = Cuboid::new(
-                Self::get_grid_pos(pos, self.mesh_resolution as f32),
-                (plane.left + plane.down + plane.normal) / self.mesh_resolution as f32,
+                Self::get_grid_pos(pos),
+                plane.left + plane.down + plane.normal,
             );
             let draw_cube = self.cursor_cube.containing_cube(&end_cube);
             let vertex_data = draw_cube.vertices();
@@ -521,7 +517,7 @@ impl Renderer {
         near_pos: Option<cgmath::Vector3<f32>>,
         far_pos: cgmath::Vector3<f32>,
     ) {
-        let (mut vertex_data, mut index_data) = generate_mesh_vertices(self.mesh_resolution);
+        let (mut vertex_data, mut index_data) = generate_mesh_vertices(self.mesh_count);
         for _ in 0..2 {
             vertex_data.pop();
             index_data.pop();

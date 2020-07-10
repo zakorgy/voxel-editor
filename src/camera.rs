@@ -24,19 +24,20 @@ pub struct CameraWrapper {
 
 impl CameraWrapper {
     pub fn new(
-        aspect_ratio: f32
+        aspect_ratio: f32,
+        meshes: f32,
     ) -> Self {
         let mut camera = OrbitZoomCamera::new(
-            [0.5, 0.5, 0.5],
-            OrbitZoomCameraSettings::default()
+            [0.5 * meshes, 0.5 * meshes, 0.5 * meshes],
+            OrbitZoomCameraSettings::default().zoom_speed(0.4 * meshes)
         );
-        camera.distance = 2.0;
+        camera.distance = 2.0 * meshes;
         CameraWrapper {
             camera,
             cam_persp: CameraPerspective {
                 fov: 45.0f32,
                 near_clip: 0.1,
-                far_clip: 10.0,
+                far_clip: 10.0 * meshes,
                 aspect_ratio,
             },
             orbit_button : event::MouseButton::Right,
