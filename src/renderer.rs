@@ -4,6 +4,7 @@ use crate::geometry::*;
 use wgpu;
 
 pub const DEFAULT_MESH_COUNT: u16 = 16;
+const SAMPLE_COUNT: u32 = 4;
 
 const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.2];
@@ -108,6 +109,31 @@ fn generate_mesh_vertices(meshes: u16) -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data, index_data)
 }
 
+fn create_multisampled_framebuffer(
+    device: &wgpu::Device,
+    sc_desc: &wgpu::SwapChainDescriptor,
+    sample_count: u32,
+) -> wgpu::TextureView {
+    let multisampled_texture_extent = wgpu::Extent3d {
+        width: sc_desc.width,
+        height: sc_desc.height,
+        depth: 1,
+    };
+    let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
+        size: multisampled_texture_extent,
+        mip_level_count: 1,
+        sample_count,
+        dimension: wgpu::TextureDimension::D2,
+        format: sc_desc.format,
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        label: None,
+    };
+
+    device
+        .create_texture(multisampled_frame_descriptor)
+        .create_default_view()
+}
+
 impl Cuboid {
     fn vertices(&self) -> Vec<Vertex> {
         let mut vertex_data = Vec::new();
@@ -190,6 +216,7 @@ pub struct Renderer {
     cursor_pipeline: Pipeline,
     cursor_cube: Cuboid,
     mvp_buf: wgpu::Buffer,
+    multisampled_framebuffer: wgpu::TextureView,
     pub mesh_count: u16,
 }
 
@@ -309,7 +336,7 @@ impl Renderer {
                     ],
                 }],
             },
-            sample_count: 1,
+            sample_count: SAMPLE_COUNT,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
@@ -415,10 +442,12 @@ impl Renderer {
                     ],
                 }],
             },
-            sample_count: 1,
+            sample_count: SAMPLE_COUNT,
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
+
+        let multisampled_framebuffer = create_multisampled_framebuffer(&device, &sc_desc, SAMPLE_COUNT);
 
         Renderer {
             surface,
@@ -444,6 +473,7 @@ impl Renderer {
             cursor_cube,
             render_cursor: true,
             mvp_buf: uniform_buf,
+            multisampled_framebuffer,
             mesh_count,
         }
     }
@@ -548,6 +578,7 @@ impl Renderer {
         let mx = self.camera.mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
         let mx_ref = mx.as_ref();
         self.queue.write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
+        self.multisampled_framebuffer = create_multisampled_framebuffer(&self.device, &self.sc_desc, SAMPLE_COUNT);
     }
 
     pub fn render(&mut self) {
@@ -566,8 +597,8 @@ impl Renderer {
         {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.output.view,
-                    resolve_target: None,
+                    attachment: &self.multisampled_framebuffer,
+                    resolve_target: Some(&frame.output.view),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.0,
