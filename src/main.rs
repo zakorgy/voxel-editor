@@ -2,6 +2,7 @@ mod camera;
 mod editor;
 mod geometry;
 mod renderer;
+mod voxel_manager;
 
 use editor::Editor;
 use winit::{

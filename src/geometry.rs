@@ -1,6 +1,7 @@
 use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 
 pub const EPSYLON: f32 = 0.000001;
+pub const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 pub struct Plane {
     pub point: Vector3<f32>,
@@ -93,9 +94,11 @@ pub fn unproject(
     Vector3::new(out.x * out.w, out.y * out.w, out.z * out.w)
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct Cuboid {
     pub corner: Vector3<f32>,
     pub extent: Vector3<f32>,
+    pub color: [f32; 4],
 }
 
 impl Cuboid {
@@ -141,10 +144,12 @@ impl Cuboid {
     fn from_corner_points(
         point1: Vector3<f32>,
         point2: Vector3<f32>,
+        color: [f32; 4],
     ) -> Self {
         Cuboid {
             corner: point1,
             extent: point2 - point1,
+            color,
         }
     }
 
@@ -153,16 +158,42 @@ impl Cuboid {
         other: &Self,
     ) -> Self {
         let (point1, point2) = self.outermost_points(other);
-        Self::from_corner_points(point1, point2)
+        Self::from_corner_points(point1, point2, self.color)
     }
 
     pub fn new(
         corner: Vector3<f32>,
         extent: Vector3<f32>,
+        color: [f32; 4],
     ) -> Self {
         Cuboid {
             corner,
             extent,
+            color,
         }
+    }
+
+    pub fn rearrange(&mut self) {
+        let corner_points = self.corner_points();
+        let mut closest_to_origo = corner_points[0];
+        let mut farthest_from_origo = corner_points[0];
+        for point in corner_points[1..].iter() {
+            if point.x <= closest_to_origo.x &&
+                point.y <= closest_to_origo.y &&
+                point.z <= closest_to_origo.z {
+                    closest_to_origo = *point;
+                }
+
+            if point.x >= farthest_from_origo.x &&
+                point.y >= farthest_from_origo.y &&
+                point.z >= farthest_from_origo.z {
+                    farthest_from_origo = *point;
+                }
+        }
+
+        if self.corner == closest_to_origo {
+            return;
+        }
+        *self = Self::from_corner_points(closest_to_origo, farthest_from_origo, self.color);
     }
 }

@@ -1,6 +1,7 @@
 use crate::camera::CameraWrapper;
-use cgmath;
 use crate::geometry::*;
+use crate::voxel_manager::VoxelManager;
+use cgmath;
 use wgpu;
 
 pub const DEFAULT_MESH_COUNT: u16 = 16;
@@ -16,7 +17,7 @@ use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct Vertex {
+pub struct Vertex {
     _pos: [f32; 4],
     _col: [f32; 4],
 }
@@ -138,37 +139,60 @@ impl Cuboid {
     fn vertices(&self) -> Vec<Vertex> {
         let mut vertex_data = Vec::new();
         let corner_points = self.corner_points();
+        let color = self.color;
 
-        /*0*/ vertex_data.push(half_red_vertex(corner_points[0].into()));
-        /*1*/ vertex_data.push(half_red_vertex(corner_points[1].into()));
-        /*2*/ vertex_data.push(half_red_vertex(corner_points[2].into()));
-        /*3*/ vertex_data.push(half_red_vertex(corner_points[3].into()));
+        /*0*/ vertex_data.push(vertex(corner_points[0].into(), color));
+        /*1*/ vertex_data.push(vertex(corner_points[1].into(), color));
+        /*2*/ vertex_data.push(vertex(corner_points[2].into(), color));
+        /*3*/ vertex_data.push(vertex(corner_points[3].into(), color));
 
-        /*4*/ vertex_data.push(half_red_vertex(corner_points[1].into()));
-        /*5*/ vertex_data.push(half_red_vertex(corner_points[0].into()));
-        /*6*/ vertex_data.push(half_red_vertex(corner_points[4].into()));
-        /*7*/ vertex_data.push(half_red_vertex(corner_points[5].into()));
+        /*4*/ vertex_data.push(vertex(corner_points[1].into(), color));
+        /*5*/ vertex_data.push(vertex(corner_points[0].into(), color));
+        /*6*/ vertex_data.push(vertex(corner_points[4].into(), color));
+        /*7*/ vertex_data.push(vertex(corner_points[5].into(), color));
 
-        /*9*/ vertex_data.push(half_red_vertex(corner_points[2].into()));
-        /*8*/ vertex_data.push(half_red_vertex(corner_points[1].into()));
-        /*10*/ vertex_data.push(half_red_vertex(corner_points[5].into()));
-        /*11*/ vertex_data.push(half_red_vertex(corner_points[6].into()));
+        /*9*/ vertex_data.push(vertex(corner_points[2].into(), color));
+        /*8*/ vertex_data.push(vertex(corner_points[1].into(), color));
+        /*10*/ vertex_data.push(vertex(corner_points[5].into(), color));
+        /*11*/ vertex_data.push(vertex(corner_points[6].into(), color));
 
-        /*12*/ vertex_data.push(half_red_vertex(corner_points[3].into()));
-        /*13*/ vertex_data.push(half_red_vertex(corner_points[2].into()));
-        /*14*/ vertex_data.push(half_red_vertex(corner_points[6].into()));
-        /*15*/ vertex_data.push(half_red_vertex(corner_points[7].into()));
+        /*12*/ vertex_data.push(vertex(corner_points[3].into(), color));
+        /*13*/ vertex_data.push(vertex(corner_points[2].into(), color));
+        /*14*/ vertex_data.push(vertex(corner_points[6].into(), color));
+        /*15*/ vertex_data.push(vertex(corner_points[7].into(), color));
 
-        /*16*/ vertex_data.push(half_red_vertex(corner_points[3].into()));
-        /*17*/ vertex_data.push(half_red_vertex(corner_points[0].into()));
-        /*18*/ vertex_data.push(half_red_vertex(corner_points[4].into()));
-        /*19*/ vertex_data.push(half_red_vertex(corner_points[7].into()));
+        /*16*/ vertex_data.push(vertex(corner_points[3].into(), color));
+        /*17*/ vertex_data.push(vertex(corner_points[0].into(), color));
+        /*18*/ vertex_data.push(vertex(corner_points[4].into(), color));
+        /*19*/ vertex_data.push(vertex(corner_points[7].into(), color));
 
-        /*20*/ vertex_data.push(half_red_vertex(corner_points[4].into()));
-        /*21*/ vertex_data.push(half_red_vertex(corner_points[5].into()));
-        /*22*/ vertex_data.push(half_red_vertex(corner_points[6].into()));
-        /*23*/ vertex_data.push(half_red_vertex(corner_points[7].into()));
+        /*20*/ vertex_data.push(vertex(corner_points[4].into(), color));
+        /*21*/ vertex_data.push(vertex(corner_points[5].into(), color));
+        /*22*/ vertex_data.push(vertex(corner_points[6].into(), color));
+        /*23*/ vertex_data.push(vertex(corner_points[7].into(), color));
 
+        vertex_data
+    }
+}
+
+impl VoxelManager {
+    pub fn vertices(&self) -> Vec<Vertex> {
+        let mut vertex_data = Vec::new();
+        let mut cube;
+        for x in 0 .. self.extent {
+            for y in 0 .. self.extent {
+                for z in 0 .. self.extent {
+                    if let Some(desc) = self.cubes[x][y][z] {
+                        cube = Cuboid::new(
+                            cgmath::Vector3::new(x as f32, y as f32, z as f32),
+                            cgmath::Vector3::new(1.0, 1.0, 1.0),
+                            desc.color,
+                        );
+                        vertex_data.append(&mut cube.vertices());
+                    }
+                }
+            }
+        }
         vertex_data
     }
 }
@@ -215,9 +239,11 @@ pub struct Renderer {
     render_cursor: bool,
     cursor_pipeline: Pipeline,
     cursor_cube: Cuboid,
+    draw_cube: Option<Cuboid>,
     mvp_buf: wgpu::Buffer,
     multisampled_framebuffer: wgpu::TextureView,
     pub mesh_count: u16,
+    voxel_manager: VoxelManager,
 }
 
 impl Renderer {
@@ -345,6 +371,7 @@ impl Renderer {
         let cursor_cube = Cuboid::new(
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             XY_PLANE.left + XY_PLANE.down + XY_PLANE.normal,
+            HALF_ALPHA_RED.into(),
         );
         let (vertex_data, cursor_index_data) = generate_cursor_vertices(&cursor_cube);
 
@@ -471,9 +498,11 @@ impl Renderer {
                 index_count: cursor_index_data.len(),
             },
             cursor_cube,
+            draw_cube: None,
             render_cursor: true,
             mvp_buf: uniform_buf,
             multisampled_framebuffer,
+            voxel_manager: VoxelManager::new(mesh_count as usize),
             mesh_count,
         }
     }
@@ -505,6 +534,7 @@ impl Renderer {
             self.cursor_cube = Cuboid::new(
                 Self::get_grid_pos(pos),
                 plane.left + plane.down + plane.normal,
+                HALF_ALPHA_RED.into(),
             );
             let vertex_data = self.cursor_cube.vertices();
             self.queue.write_buffer(
@@ -527,6 +557,7 @@ impl Renderer {
             let end_cube = Cuboid::new(
                 Self::get_grid_pos(pos),
                 plane.left + plane.down + plane.normal,
+                HALF_ALPHA_RED.into(),
             );
             let draw_cube = self.cursor_cube.containing_cube(&end_cube);
             let vertex_data = draw_cube.vertices();
@@ -535,6 +566,7 @@ impl Renderer {
                 0,
                 bytemuck::cast_slice(&vertex_data)
             );
+            self.draw_cube = Some(draw_cube);
             self.render_cursor = true;
         } else {
             self.render_cursor = false;

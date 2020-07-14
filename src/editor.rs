@@ -12,7 +12,8 @@ use winit::{
 enum EditorState {
     ChangeView,
     Draw,
-    _Erase,
+    DrawReleased,
+    Erase,
 }
 
 pub struct Editor {
@@ -39,7 +40,7 @@ impl Editor {
                     self.state = EditorState::Draw;
                 }
                 event::ElementState::Released => {
-                    self.state = EditorState::ChangeView;
+                    self.state = EditorState::DrawReleased;
                 }
             }
         };
@@ -113,12 +114,19 @@ impl Editor {
 
         #[cfg(feature = "debug_ray")]
         log::debug!("Mouse intersects {:?} plane at {:?}", closest_plane_name, intersection_point);
-        if self.state == EditorState::ChangeView {
-            self.renderer.update_cursor_pos(intersection_point, closest_plane);
-        } else if self.state == EditorState::Draw {
-            self.renderer.update_draw_rectangle(intersection_point, closest_plane);
-        } else {
-            self.renderer.update_cursor_pos(intersection_point, None);
+        match self.state {
+            EditorState::ChangeView => {
+                self.renderer.update_cursor_pos(intersection_point, closest_plane);
+            },
+            EditorState::Draw => {
+                self.renderer.update_draw_rectangle(intersection_point, closest_plane);
+            },
+            EditorState::DrawReleased => {
+                self.state = EditorState::ChangeView;
+            },
+            EditorState::Erase => {
+                unimplemented!()
+            }
         }
     }
 
