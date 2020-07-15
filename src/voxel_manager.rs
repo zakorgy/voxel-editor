@@ -27,7 +27,7 @@ impl VoxelManager {
         }
     }
 
-    pub fn add_cube(&mut self, cuboid: Cuboid, color: [f32; 4]) {
+    pub fn add_cube(&mut self, cuboid: Cuboid) {
         let origin: Vector3<usize> = Vector3::new(cuboid.corner.x as usize, cuboid.corner.y as usize, cuboid.corner.z as usize);
         for x in origin.x .. origin.x + cuboid.extent.x as usize {
             for y in origin.y .. origin.y + cuboid.extent.y as usize {

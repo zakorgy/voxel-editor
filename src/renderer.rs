@@ -573,6 +573,14 @@ impl Renderer {
         }
     }
 
+    pub fn add_rectangle(&mut self) {
+        if let Some(mut cube) = self.draw_cube.take() {
+            cube.rearrange();
+            cube.color = WHITE;
+            self.voxel_manager.add_cube(cube);
+        }
+    }
+
     #[cfg(feature = "debug_ray")]
     pub fn cursor_helper(
         &mut self,

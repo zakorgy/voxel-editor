@@ -122,6 +122,7 @@ impl Editor {
                 self.renderer.update_draw_rectangle(intersection_point, closest_plane);
             },
             EditorState::DrawReleased => {
+                self.renderer.add_rectangle();
                 self.state = EditorState::ChangeView;
             },
             EditorState::Erase => {
