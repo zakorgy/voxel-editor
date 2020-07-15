@@ -176,13 +176,21 @@ impl Cuboid {
 }
 
 impl VoxelManager {
-    pub fn vertices(&self) -> Vec<Vertex> {
+    pub fn vertices(&self) -> (Vec<Vertex>, Vec<u16>) {
         let mut vertex_data = Vec::new();
+        let mut index_data = Vec::new();
+        let mut step;
+        let mut idx;
         let mut cube;
         for x in 0 .. self.extent {
             for y in 0 .. self.extent {
                 for z in 0 .. self.extent {
                     if let Some(desc) = self.cubes[x][y][z] {
+                        idx = vertex_data.len() as u16;
+                        for i in 0..7 {
+                            step = 4 * i;
+                            index_data.extend_from_slice(&[idx + step, idx + 1 + step, idx + 2 + step, idx + 2 + step, idx + 3 + step, idx + step]);
+                        }
                         cube = Cuboid::new(
                             cgmath::Vector3::new(x as f32, y as f32, z as f32),
                             cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -193,7 +201,7 @@ impl VoxelManager {
                 }
             }
         }
-        vertex_data
+        (vertex_data, index_data)
     }
 }
 
@@ -238,6 +246,7 @@ pub struct Renderer {
     mesh_pipeline: Pipeline,
     render_cursor: bool,
     cursor_pipeline: Pipeline,
+    voxel_pipeline: Pipeline,
     cursor_cube: Cuboid,
     draw_cube: Option<Cuboid>,
     mvp_buf: wgpu::Buffer,
@@ -474,6 +483,108 @@ impl Renderer {
             alpha_to_coverage_enabled: false,
         });
 
+//****************************** Setting up voxel pipeline ******************************
+        let mc = mesh_count as u64;
+        let vertex_buf_voxel = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            // We can have a maximum number of mc * mc * mc voxel
+            // Each voxel has 24 vertices
+            size: mc * mc * mc * 24 * mem::size_of::<Vertex>() as u64,
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let index_buf_voxel = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            // We can have a maximum number of mc * mc * mc voxel
+            // We use 36 indices to draw a voxel
+            size: mc * mc * mc * 36 * mem::size_of::<u16>() as u64,
+            usage: wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // Create pipeline layout
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+          label: None,
+          bindings: &[wgpu::BindGroupLayoutEntry::new(
+              0,
+              wgpu::ShaderStage::VERTEX,
+              wgpu::BindingType::UniformBuffer {
+                  dynamic: false,
+                  min_binding_size: wgpu::BufferSize::new(
+                      mem::size_of::<cgmath::Matrix4<f32>>() as _
+                  ),
+              },
+          )],
+        });
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+          bind_group_layouts: &[&bind_group_layout],
+        });
+
+        // Create bind group
+        let voxel_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+          layout: &bind_group_layout,
+          bindings: &[
+              wgpu::Binding {
+                  binding: 0,
+                  resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
+              },
+          ],
+          label: None,
+        });
+
+        // Create the cursor rendering pipeline
+
+        let voxel_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+          layout: &pipeline_layout,
+          vertex_stage: wgpu::ProgrammableStageDescriptor {
+              module: &vs_module,
+              entry_point: "main",
+          },
+          fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+              module: &fs_module,
+              entry_point: "main",
+          }),
+          rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+              front_face: wgpu::FrontFace::Ccw,
+              cull_mode: wgpu::CullMode::Back,
+              depth_bias: 0,
+              depth_bias_slope_scale: 0.0,
+              depth_bias_clamp: 0.0,
+          }),
+          primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+          color_states: &[wgpu::ColorStateDescriptor {
+              format: sc_desc.format,
+              color_blend: wgpu::BlendDescriptor::REPLACE,
+              alpha_blend: wgpu::BlendDescriptor::REPLACE,
+              write_mask: wgpu::ColorWrite::ALL,
+          }],
+          depth_stencil_state: None,
+          vertex_state: wgpu::VertexStateDescriptor {
+              index_format: wgpu::IndexFormat::Uint16,
+              vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                  stride: vertex_size as wgpu::BufferAddress,
+                  step_mode: wgpu::InputStepMode::Vertex,
+                  attributes: &[
+                      // Position
+                      wgpu::VertexAttributeDescriptor {
+                          format: wgpu::VertexFormat::Float4,
+                          offset: 0,
+                          shader_location: 0,
+                      },
+                      // Color
+                      wgpu::VertexAttributeDescriptor {
+                          format: wgpu::VertexFormat::Float4,
+                          offset: 4 * 4,
+                          shader_location: 1,
+                      },
+                  ],
+              }],
+          },
+          sample_count: SAMPLE_COUNT,
+          sample_mask: !0,
+          alpha_to_coverage_enabled: false,
+        });
         let multisampled_framebuffer = create_multisampled_framebuffer(&device, &sc_desc, SAMPLE_COUNT);
 
         Renderer {
@@ -496,6 +607,13 @@ impl Renderer {
                 vertex_buf: vertex_buf_cursor,
                 index_buf: index_buf_cursor,
                 index_count: cursor_index_data.len(),
+            },
+            voxel_pipeline : Pipeline {
+              pipeline: voxel_pipeline,
+              bind_group: voxel_bind_group,
+              vertex_buf: vertex_buf_voxel,
+              index_buf: index_buf_voxel,
+              index_count: 0,
             },
             cursor_cube,
             draw_cube: None,
@@ -578,6 +696,17 @@ impl Renderer {
             cube.rearrange();
             cube.color = WHITE;
             self.voxel_manager.add_cube(cube);
+            let (vertex_data, index_data) = self.voxel_manager.vertices();
+            self.queue.write_buffer(
+                &self.voxel_pipeline.vertex_buf,
+                0,
+                bytemuck::cast_slice(&vertex_data)
+            );
+            self.queue.write_buffer(
+              &self.voxel_pipeline.vertex_buf,
+              0,
+              bytemuck::cast_slice(&vertex_data)
+          );
         }
     }
 
