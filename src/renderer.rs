@@ -142,24 +142,24 @@ impl Cuboid {
         let color = self.color;
 
         /*0*/ vertex_data.push(vertex(corner_points[0].into(), color));
-        /*1*/ vertex_data.push(vertex(corner_points[1].into(), color));
+        /*1*/ vertex_data.push(vertex(corner_points[3].into(), color));
         /*2*/ vertex_data.push(vertex(corner_points[2].into(), color));
-        /*3*/ vertex_data.push(vertex(corner_points[3].into(), color));
+        /*3*/ vertex_data.push(vertex(corner_points[1].into(), color));
 
         /*4*/ vertex_data.push(vertex(corner_points[1].into(), color));
-        /*5*/ vertex_data.push(vertex(corner_points[0].into(), color));
+        /*5*/ vertex_data.push(vertex(corner_points[5].into(), color));
         /*6*/ vertex_data.push(vertex(corner_points[4].into(), color));
-        /*7*/ vertex_data.push(vertex(corner_points[5].into(), color));
+        /*7*/ vertex_data.push(vertex(corner_points[0].into(), color));
 
         /*9*/ vertex_data.push(vertex(corner_points[2].into(), color));
-        /*8*/ vertex_data.push(vertex(corner_points[1].into(), color));
+        /*8*/ vertex_data.push(vertex(corner_points[6].into(), color));
         /*10*/ vertex_data.push(vertex(corner_points[5].into(), color));
-        /*11*/ vertex_data.push(vertex(corner_points[6].into(), color));
+        /*11*/ vertex_data.push(vertex(corner_points[1].into(), color));
 
         /*12*/ vertex_data.push(vertex(corner_points[3].into(), color));
-        /*13*/ vertex_data.push(vertex(corner_points[2].into(), color));
+        /*13*/ vertex_data.push(vertex(corner_points[7].into(), color));
         /*14*/ vertex_data.push(vertex(corner_points[6].into(), color));
-        /*15*/ vertex_data.push(vertex(corner_points[7].into(), color));
+        /*15*/ vertex_data.push(vertex(corner_points[2].into(), color));
 
         /*16*/ vertex_data.push(vertex(corner_points[3].into(), color));
         /*17*/ vertex_data.push(vertex(corner_points[0].into(), color));
@@ -187,7 +187,7 @@ impl VoxelManager {
                 for z in 0 .. self.extent {
                     if let Some(desc) = self.cubes[x][y][z] {
                         idx = vertex_data.len() as u16;
-                        for i in 0..7 {
+                        for i in 0..6 {
                             step = 4 * i;
                             index_data.extend_from_slice(&[idx + step, idx + 1 + step, idx + 2 + step, idx + 2 + step, idx + 3 + step, idx + step]);
                         }
@@ -533,7 +533,7 @@ impl Renderer {
           label: None,
         });
 
-        // Create the cursor rendering pipeline
+        // Create the voxel rendering pipeline
 
         let voxel_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
           layout: &pipeline_layout,
@@ -703,10 +703,11 @@ impl Renderer {
                 bytemuck::cast_slice(&vertex_data)
             );
             self.queue.write_buffer(
-              &self.voxel_pipeline.vertex_buf,
+              &self.voxel_pipeline.index_buf,
               0,
-              bytemuck::cast_slice(&vertex_data)
-          );
+              bytemuck::cast_slice(&index_data)
+            );
+            self.voxel_pipeline.index_count = index_data.len();
         }
     }
 
@@ -781,6 +782,9 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
             self.mesh_pipeline.draw(&mut rpass);
+            if self.voxel_pipeline.index_count > 0 {
+                self.voxel_pipeline.draw(&mut rpass);
+            }
             if self.render_cursor {
                 self.cursor_pipeline.draw(&mut rpass);
             }
