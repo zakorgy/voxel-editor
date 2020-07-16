@@ -1,4 +1,6 @@
-use camera_controllers::{Keys, OrbitZoomCamera, OrbitZoomCameraSettings, CameraPerspective, model_view_projection};
+use camera_controllers::{
+    model_view_projection, CameraPerspective, Keys, OrbitZoomCamera, OrbitZoomCameraSettings,
+};
 use cgmath::Transform;
 use winit::event;
 
@@ -23,13 +25,10 @@ pub struct CameraWrapper {
 }
 
 impl CameraWrapper {
-    pub fn new(
-        aspect_ratio: f32,
-        meshes: f32,
-    ) -> Self {
+    pub fn new(aspect_ratio: f32, meshes: f32) -> Self {
         let mut camera = OrbitZoomCamera::new(
             [0.5 * meshes, 0.5 * meshes, 0.5 * meshes],
-            OrbitZoomCameraSettings::default().zoom_speed(0.4 * meshes)
+            OrbitZoomCameraSettings::default().zoom_speed(0.4 * meshes),
         );
         camera.distance = 2.0 * meshes;
         CameraWrapper {
@@ -40,10 +39,10 @@ impl CameraWrapper {
                 far_clip: 10.0 * meshes,
                 aspect_ratio,
             },
-            orbit_button : event::MouseButton::Right,
-            zoom_button : event::VirtualKeyCode::LControl,
-            x_axis : 0.0,
-            y_axis : 0.0,
+            orbit_button: event::MouseButton::Right,
+            zoom_button: event::VirtualKeyCode::LControl,
+            x_axis: 0.0,
+            y_axis: 0.0,
         }
     }
 
@@ -53,7 +52,7 @@ impl CameraWrapper {
         model_view_projection(
             *cgmath::Matrix4::one().as_ref(),
             self.camera.camera(0.0).orthogonal(),
-            self.cam_persp.projection()
+            self.cam_persp.projection(),
         )
     }
 
@@ -86,19 +85,15 @@ impl CameraWrapper {
                         }
                     }
                 }
-            },
-            event::WindowEvent::MouseInput {
-                state,
-                button,
-                ..
-            } => {
+            }
+            event::WindowEvent::MouseInput { state, button, .. } => {
                 if *button == self.orbit_button {
                     match state {
                         event::ElementState::Pressed => self.camera.keys.insert(Keys::ORBIT),
                         event::ElementState::Released => self.camera.keys.remove(Keys::ORBIT),
                     }
                 }
-            },
+            }
             event::WindowEvent::MouseWheel {
                 delta: event::MouseScrollDelta::LineDelta(dx, dy),
                 ..
@@ -109,11 +104,8 @@ impl CameraWrapper {
                     self.camera.control_camera(*dx * 10.0, *dy * 10.0);
                 }
                 viewport_changed = true;
-            },
-            event::WindowEvent::CursorMoved {
-                position,
-                ..
-            } => {
+            }
+            event::WindowEvent::CursorMoved { position, .. } => {
                 let dx = position.x as f32 - self.x_axis;
                 self.x_axis = position.x as f32;
 
@@ -124,7 +116,7 @@ impl CameraWrapper {
                     self.camera.control_camera(-dx / 10.0, -dy / 10.0);
                     viewport_changed = true;
                 }
-            },
+            }
             other => {
                 log::info!("Event {:?}", other);
             }

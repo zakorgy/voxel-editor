@@ -1,6 +1,6 @@
-use cgmath::Vector3;
-use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
 use crate::geometry::*;
+use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
+use cgmath::Vector3;
 use futures::executor::block_on;
 use std::time;
 use winit::{
@@ -34,7 +34,8 @@ impl Editor {
             state,
             button: event::MouseButton::Left,
             ..
-        } = event {
+        } = event
+        {
             match state {
                 event::ElementState::Pressed => {
                     self.state = EditorState::Draw;
@@ -44,10 +45,7 @@ impl Editor {
                 }
             }
         };
-        if let event::WindowEvent::CursorMoved {
-            position,
-            ..
-        } = event {
+        if let event::WindowEvent::CursorMoved { position, .. } = event {
             self.cursor_pos_world = unproject(
                 position.x as f32,
                 position.y as f32,
@@ -64,11 +62,9 @@ impl Editor {
 
         let cam_pos: Vector3<f32> = self.renderer.camera.camera.camera(0.0).position.into();
         #[cfg(feature = "debug_ray")]
-        self.renderer.cursor_helper(Some(cam_pos), self.cursor_pos_world);
-        let cursor_ray = Ray::new(
-            cam_pos,
-            cam_pos - self.cursor_pos_world,
-        );
+        self.renderer
+            .cursor_helper(Some(cam_pos), self.cursor_pos_world);
+        let cursor_ray = Ray::new(cam_pos, cam_pos - self.cursor_pos_world);
 
         #[cfg(feature = "debug_ray")]
         let mut closest_plane_name = "None";
@@ -78,30 +74,38 @@ impl Editor {
         for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
             if let Some(point) = cursor_ray.plane_intersection(plane) {
                 #[cfg(feature = "debug_ray")]
-                log::debug!("{:?} intersects with mouse world position at {:?}", plane.name, point);
-                if point.x <= mesh_count && point.x >= 0.0 &&
-                    point.y <= mesh_count && point.y >= 0.0 &&
-                    point.z <= mesh_count && point.z >= 0.0 {
-                        intersection_point = point;
+                log::debug!(
+                    "{:?} intersects with mouse world position at {:?}",
+                    plane.name,
+                    point
+                );
+                if point.x <= mesh_count
+                    && point.x >= 0.0
+                    && point.y <= mesh_count
+                    && point.y >= 0.0
+                    && point.z <= mesh_count
+                    && point.z >= 0.0
+                {
+                    intersection_point = point;
 
-                        // Workaround for really small floating point coordinates can cause stuttering in the cursor movement
-                        if intersection_point.x < EPSYLON {
-                            intersection_point.x = 0.0;
-                        }
-                        if intersection_point.y < EPSYLON {
-                            intersection_point.y = 0.0;
-                        }
-                        if intersection_point.z < EPSYLON {
-                            intersection_point.z = 0.0;
-                        }
-
-                        #[cfg(feature = "debug_ray")]
-                        {
-                            closest_plane_name = plane.name;
-                        }
-                        closest_plane = Some(plane);
-                        break;
+                    // Workaround for really small floating point coordinates can cause stuttering in the cursor movement
+                    if intersection_point.x < EPSYLON {
+                        intersection_point.x = 0.0;
                     }
+                    if intersection_point.y < EPSYLON {
+                        intersection_point.y = 0.0;
+                    }
+                    if intersection_point.z < EPSYLON {
+                        intersection_point.z = 0.0;
+                    }
+
+                    #[cfg(feature = "debug_ray")]
+                    {
+                        closest_plane_name = plane.name;
+                    }
+                    closest_plane = Some(plane);
+                    break;
+                }
                 // An aletrnative way to compute closest plane for more general cases using a dist variable
                 /*let dist_vec = cam_pos - point;
                 let dot = dist_vec.dot(dist_vec);
@@ -113,21 +117,25 @@ impl Editor {
         }
 
         #[cfg(feature = "debug_ray")]
-        log::debug!("Mouse intersects {:?} plane at {:?}", closest_plane_name, intersection_point);
+        log::debug!(
+            "Mouse intersects {:?} plane at {:?}",
+            closest_plane_name,
+            intersection_point
+        );
         match self.state {
             EditorState::ChangeView => {
-                self.renderer.update_cursor_pos(intersection_point, closest_plane);
-            },
+                self.renderer
+                    .update_cursor_pos(intersection_point, closest_plane);
+            }
             EditorState::Draw => {
-                self.renderer.update_draw_rectangle(intersection_point, closest_plane);
-            },
+                self.renderer
+                    .update_draw_rectangle(intersection_point, closest_plane);
+            }
             EditorState::DrawReleased => {
                 self.renderer.add_rectangle();
                 self.state = EditorState::ChangeView;
-            },
-            EditorState::Erase => {
-                unimplemented!()
             }
+            EditorState::Erase => unimplemented!(),
         }
     }
 
@@ -135,10 +143,7 @@ impl Editor {
         self.renderer.render();
     }
 
-    pub fn run_editor(
-        event_loop: winit::event_loop::EventLoop<()>,
-        window: winit::window::Window
-    ) {
+    pub fn run_editor(event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window) {
         log::info!("Initializing the surface...");
 
         let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
@@ -148,27 +153,25 @@ impl Editor {
             (size, surface)
         };
 
-        let adapter = block_on(instance
-            .request_adapter(
-                &wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::Default,
-                    compatible_surface: Some(&surface),
-                },
-                wgpu::UnsafeFeatures::disallow(),
-            ))
-            .unwrap();
+        let adapter = block_on(instance.request_adapter(
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::Default,
+                compatible_surface: Some(&surface),
+            },
+            wgpu::UnsafeFeatures::disallow(),
+        ))
+        .unwrap();
 
         let trace_dir = std::env::var("WGPU_TRACE");
-        let (device, queue) = block_on(adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
-                    shader_validation: true,
-                },
-                trace_dir.ok().as_ref().map(std::path::Path::new),
-            ))
-            .unwrap();
+        let (device, queue) = block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                features: wgpu::Features::empty(),
+                limits: wgpu::Limits::default(),
+                shader_validation: true,
+            },
+            trace_dir.ok().as_ref().map(std::path::Path::new),
+        ))
+        .unwrap();
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -180,7 +183,14 @@ impl Editor {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         log::info!("Initializing the Renderer...");
-        let renderer = Renderer::init(surface, device, queue, sc_desc, swap_chain, DEFAULT_MESH_COUNT);
+        let renderer = Renderer::init(
+            surface,
+            device,
+            queue,
+            sc_desc,
+            swap_chain,
+            DEFAULT_MESH_COUNT,
+        );
         let mut editor = Editor {
             window,
             renderer,

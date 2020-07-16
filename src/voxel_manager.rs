@@ -8,9 +8,7 @@ pub struct CubeDescriptor {
 
 impl CubeDescriptor {
     fn new(color: [f32; 4]) -> Self {
-        CubeDescriptor {
-            color,
-        }
+        CubeDescriptor { color }
     }
 }
 
@@ -28,10 +26,14 @@ impl VoxelManager {
     }
 
     pub fn add_cube(&mut self, cuboid: Cuboid) {
-        let origin: Vector3<usize> = Vector3::new(cuboid.corner.x as usize, cuboid.corner.y as usize, cuboid.corner.z as usize);
-        for x in origin.x .. origin.x + cuboid.extent.x as usize {
-            for y in origin.y .. origin.y + cuboid.extent.y as usize {
-                for z in origin.z .. origin.z + cuboid.extent.z as usize {
+        let origin: Vector3<usize> = Vector3::new(
+            cuboid.corner.x as usize,
+            cuboid.corner.y as usize,
+            cuboid.corner.z as usize,
+        );
+        for x in origin.x..origin.x + cuboid.extent.x as usize {
+            for y in origin.y..origin.y + cuboid.extent.y as usize {
+                for z in origin.z..origin.z + cuboid.extent.z as usize {
                     self.cubes[x][y][z] = Some(CubeDescriptor::new(cuboid.color.into()));
                 }
             }
