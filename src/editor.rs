@@ -11,8 +11,13 @@ use winit::{
 #[derive(Eq, PartialEq)]
 enum EditorState {
     ChangeView,
+    Edit,
+    EditFinished,
+}
+
+#[derive(Eq, PartialEq)]
+enum EditOperation {
     Draw,
-    DrawReleased,
     Erase,
 }
 
@@ -20,6 +25,7 @@ pub struct Editor {
     window: winit::window::Window,
     renderer: Renderer,
     state: EditorState,
+    edit_op: EditOperation,
     cursor_pos_world: Vector3<f32>,
 }
 
@@ -38,10 +44,10 @@ impl Editor {
         {
             match state {
                 event::ElementState::Pressed => {
-                    self.state = EditorState::Draw;
+                    self.state = EditorState::Edit;
                 }
                 event::ElementState::Released => {
-                    self.state = EditorState::DrawReleased;
+                    self.state = EditorState::EditFinished;
                 }
             }
         };
@@ -55,6 +61,23 @@ impl Editor {
                 self.window.inner_size(),
             );
         }
+        if let event::WindowEvent::KeyboardInput {
+            input: event::KeyboardInput {
+                virtual_keycode: Some(event::VirtualKeyCode::Space),
+                state: event::ElementState::Pressed,
+                ..
+            },
+            ..
+        } = event
+        {
+            // Don't change edit op while drawing/erasing
+            if self.state == EditorState::ChangeView {
+                match self.edit_op {
+                    EditOperation::Draw => self.edit_op = EditOperation::Erase,
+                    EditOperation::Erase => self.edit_op = EditOperation::Draw,
+                };
+            }
+        };
 
         if self.state == EditorState::ChangeView {
             self.renderer.update_view(event);
@@ -127,15 +150,17 @@ impl Editor {
                 self.renderer
                     .update_cursor_pos(intersection_point, closest_plane);
             }
-            EditorState::Draw => {
+            EditorState::Edit => {
                 self.renderer
                     .update_draw_rectangle(intersection_point, closest_plane);
             }
-            EditorState::DrawReleased => {
-                self.renderer.add_rectangle();
+            EditorState::EditFinished => {
+                match self.edit_op {
+                    EditOperation::Draw => self.renderer.draw_rectangle(),
+                    EditOperation::Erase => self.renderer.erase_rectangle(),
+                };
                 self.state = EditorState::ChangeView;
             }
-            EditorState::Erase => unimplemented!(),
         }
     }
 
@@ -196,6 +221,7 @@ impl Editor {
             renderer,
             state: EditorState::ChangeView,
             cursor_pos_world: Vector3::new(0.0, 0.0, 0.0),
+            edit_op: EditOperation::Draw,
         };
 
         let mut last_update_inst = time::Instant::now();

@@ -29,10 +29,6 @@ fn white_vertex(pos: [f32; 3]) -> Vertex {
     vertex(pos, [1.0; 4])
 }
 
-fn half_red_vertex(pos: [f32; 3]) -> Vertex {
-    vertex(pos, HALF_ALPHA_RED)
-}
-
 fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     Vertex {
         _pos: [pos[0], pos[1], pos[2], 1.0],
@@ -706,11 +702,31 @@ impl Renderer {
         }
     }
 
-    pub fn add_rectangle(&mut self) {
+    pub fn draw_rectangle(&mut self) {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
             cube.color = WHITE;
             self.voxel_manager.add_cube(cube);
+            let (vertex_data, index_data) = self.voxel_manager.vertices();
+            self.queue.write_buffer(
+                &self.voxel_pipeline.vertex_buf,
+                0,
+                bytemuck::cast_slice(&vertex_data),
+            );
+            self.queue.write_buffer(
+                &self.voxel_pipeline.index_buf,
+                0,
+                bytemuck::cast_slice(&index_data),
+            );
+            self.voxel_pipeline.index_count = index_data.len();
+        }
+    }
+
+
+    pub fn erase_rectangle(&mut self) {
+        if let Some(mut cube) = self.draw_cube.take() {
+            cube.rearrange();
+            self.voxel_manager.erase_cube(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
             self.queue.write_buffer(
                 &self.voxel_pipeline.vertex_buf,

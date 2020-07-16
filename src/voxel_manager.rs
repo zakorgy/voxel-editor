@@ -39,4 +39,19 @@ impl VoxelManager {
             }
         }
     }
+
+    pub fn erase_cube(&mut self, cuboid: Cuboid) {
+        let origin: Vector3<usize> = Vector3::new(
+            cuboid.corner.x as usize,
+            cuboid.corner.y as usize,
+            cuboid.corner.z as usize,
+        );
+        for x in origin.x..origin.x + cuboid.extent.x as usize {
+            for y in origin.y..origin.y + cuboid.extent.y as usize {
+                for z in origin.z..origin.z + cuboid.extent.z as usize {
+                    self.cubes[x][y][z] = None;
+                }
+            }
+        }
+    }
 }
