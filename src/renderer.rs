@@ -15,15 +15,24 @@ const TRANSPARENT: [f32; 4] = [0.0, 0.0, 0.0, 0.0];
 
 use bytemuck::{Pod, Zeroable};
 
-#[repr(C)]
 #[derive(Clone, Copy)]
 pub struct Vertex {
     _pos: [f32; 4],
     _col: [f32; 4],
 }
 
+#[derive(Clone, Copy)]
+pub struct VoxelVertex {
+    _pos: [f32; 4],
+    _col: [f32; 4],
+    _normal: [f32; 3],
+}
+
 unsafe impl Pod for Vertex {}
 unsafe impl Zeroable for Vertex {}
+
+unsafe impl Pod for VoxelVertex {}
+unsafe impl Zeroable for VoxelVertex {}
 
 fn white_vertex(pos: [f32; 3]) -> Vertex {
     vertex(pos, [1.0; 4])
@@ -32,7 +41,15 @@ fn white_vertex(pos: [f32; 3]) -> Vertex {
 fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     Vertex {
         _pos: [pos[0], pos[1], pos[2], 1.0],
-        _col: [col[0], col[1], col[2], col[3]],
+        _col: col,
+    }
+}
+
+fn voxel_vertex(pos: [f32; 3], col: [f32; 4], norm: [f32; 3]) -> VoxelVertex {
+    VoxelVertex {
+        _pos: [pos[0], pos[1], pos[2], 1.0],
+        _col: col,
+        _normal: norm,
     }
 }
 
@@ -136,6 +153,7 @@ impl Cuboid {
         let corner_points = self.corner_points();
         let color = self.color;
 
+        // back
         /*0*/
         vertex_data.push(vertex(corner_points[0].into(), color));
         /*1*/
@@ -145,6 +163,7 @@ impl Cuboid {
         /*3*/
         vertex_data.push(vertex(corner_points[1].into(), color));
 
+        // bottom
         /*4*/
         vertex_data.push(vertex(corner_points[1].into(), color));
         /*5*/
@@ -154,6 +173,7 @@ impl Cuboid {
         /*7*/
         vertex_data.push(vertex(corner_points[0].into(), color));
 
+        // right
         /*9*/
         vertex_data.push(vertex(corner_points[2].into(), color));
         /*8*/
@@ -163,6 +183,7 @@ impl Cuboid {
         /*11*/
         vertex_data.push(vertex(corner_points[1].into(), color));
 
+        // top
         /*12*/
         vertex_data.push(vertex(corner_points[3].into(), color));
         /*13*/
@@ -172,6 +193,7 @@ impl Cuboid {
         /*15*/
         vertex_data.push(vertex(corner_points[2].into(), color));
 
+        // left
         /*16*/
         vertex_data.push(vertex(corner_points[3].into(), color));
         /*17*/
@@ -181,6 +203,7 @@ impl Cuboid {
         /*19*/
         vertex_data.push(vertex(corner_points[7].into(), color));
 
+        // front
         /*20*/
         vertex_data.push(vertex(corner_points[4].into(), color));
         /*21*/
@@ -192,10 +215,174 @@ impl Cuboid {
 
         vertex_data
     }
+
+    fn voxel_vertices(&self) -> Vec<VoxelVertex> {
+        let mut vertex_data = Vec::new();
+        let corner_points = self.corner_points();
+        let color = self.color;
+
+        // back
+        /*0*/
+        vertex_data.push(voxel_vertex(
+            corner_points[0].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+        /*1*/
+        vertex_data.push(voxel_vertex(
+            corner_points[3].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+        /*2*/
+        vertex_data.push(voxel_vertex(
+            corner_points[2].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+        /*3*/
+        vertex_data.push(voxel_vertex(
+            corner_points[1].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+
+        // bottom
+        /*4*/
+        vertex_data.push(voxel_vertex(
+            corner_points[1].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+        /*5*/
+        vertex_data.push(voxel_vertex(
+            corner_points[5].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+        /*6*/
+        vertex_data.push(voxel_vertex(
+            corner_points[4].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+        /*7*/
+        vertex_data.push(voxel_vertex(
+            corner_points[0].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+
+        // right
+        /*9*/
+        vertex_data.push(voxel_vertex(
+            corner_points[2].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+        /*8*/
+        vertex_data.push(voxel_vertex(
+            corner_points[6].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+        /*10*/
+        vertex_data.push(voxel_vertex(
+            corner_points[5].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+        /*11*/
+        vertex_data.push(voxel_vertex(
+            corner_points[1].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+
+        // top
+        /*12*/
+        vertex_data.push(voxel_vertex(
+            corner_points[3].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+        /*13*/
+        vertex_data.push(voxel_vertex(
+            corner_points[7].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+        /*14*/
+        vertex_data.push(voxel_vertex(
+            corner_points[6].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+        /*15*/
+        vertex_data.push(voxel_vertex(
+            corner_points[2].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+
+        // left
+        /*16*/
+        vertex_data.push(voxel_vertex(
+            corner_points[3].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+        /*17*/
+        vertex_data.push(voxel_vertex(
+            corner_points[0].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+        /*18*/
+        vertex_data.push(voxel_vertex(
+            corner_points[4].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+        /*19*/
+        vertex_data.push(voxel_vertex(
+            corner_points[7].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+
+        // front
+        /*20*/
+        vertex_data.push(voxel_vertex(
+            corner_points[4].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+        /*21*/
+        vertex_data.push(voxel_vertex(
+            corner_points[5].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+        /*22*/
+        vertex_data.push(voxel_vertex(
+            corner_points[6].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+        /*23*/
+        vertex_data.push(voxel_vertex(
+            corner_points[7].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+
+        vertex_data
+    }
 }
 
 impl VoxelManager {
-    pub fn vertices(&self) -> (Vec<Vertex>, Vec<u16>) {
+    pub fn vertices(&self) -> (Vec<VoxelVertex>, Vec<u16>) {
         let mut vertex_data = Vec::new();
         let mut index_data = Vec::new();
         let mut step;
@@ -222,7 +409,7 @@ impl VoxelManager {
                             cgmath::Vector3::new(1.0, 1.0, 1.0),
                             desc.color,
                         );
-                        vertex_data.append(&mut cube.vertices());
+                        vertex_data.append(&mut cube.voxel_vertices());
                     }
                 }
             }
@@ -511,7 +698,7 @@ impl Renderer {
             label: None,
             // We can have a maximum number of mc * mc * mc voxel
             // Each voxel has 24 vertices
-            size: mc * mc * mc * 24 * mem::size_of::<Vertex>() as u64,
+            size: mc * mc * mc * 24 * mem::size_of::<VoxelVertex>() as u64,
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
         });
@@ -554,15 +741,19 @@ impl Renderer {
         });
 
         // Create the voxel rendering pipeline
+        let vs_module_voxel =
+            device.create_shader_module(wgpu::include_spirv!("voxel_shader.vert.spv"));
+        let fs_module_voxel =
+            device.create_shader_module(wgpu::include_spirv!("voxel_shader.frag.spv"));
 
         let voxel_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
             vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vs_module,
+                module: &vs_module_voxel,
                 entry_point: "main",
             },
             fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                module: &fs_module,
+                module: &fs_module_voxel,
                 entry_point: "main",
             }),
             rasterization_state: Some(wgpu::RasterizationStateDescriptor {
@@ -583,7 +774,7 @@ impl Renderer {
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: vertex_size as wgpu::BufferAddress,
+                    stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::InputStepMode::Vertex,
                     attributes: &[
                         // Position
@@ -597,6 +788,12 @@ impl Renderer {
                             format: wgpu::VertexFormat::Float4,
                             offset: 4 * 4,
                             shader_location: 1,
+                        },
+                        // Normal
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float4,
+                            offset: 4 * 4,
+                            shader_location: 2,
                         },
                     ],
                 }],
@@ -721,7 +918,6 @@ impl Renderer {
             self.voxel_pipeline.index_count = index_data.len();
         }
     }
-
 
     pub fn erase_rectangle(&mut self) {
         if let Some(mut cube) = self.draw_cube.take() {
