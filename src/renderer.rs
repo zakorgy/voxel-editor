@@ -7,6 +7,8 @@ use wgpu;
 pub const DEFAULT_MESH_COUNT: u16 = 16;
 const SAMPLE_COUNT: u32 = 4;
 
+const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+
 const RED: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 const HALF_ALPHA_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.2];
 const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
@@ -122,28 +124,30 @@ fn generate_mesh_vertices(meshes: u16) -> (Vec<Vertex>, Vec<u16>) {
     (vertex_data, index_data)
 }
 
-fn create_multisampled_framebuffer(
+fn create_texture_view(
     device: &wgpu::Device,
     sc_desc: &wgpu::SwapChainDescriptor,
     sample_count: u32,
+    format: wgpu::TextureFormat,
+    label: Option<&'static str>,
 ) -> wgpu::TextureView {
-    let multisampled_texture_extent = wgpu::Extent3d {
+    let size = wgpu::Extent3d {
         width: sc_desc.width,
         height: sc_desc.height,
         depth: 1,
     };
-    let multisampled_frame_descriptor = &wgpu::TextureDescriptor {
-        size: multisampled_texture_extent,
+    let texture_descriptor = &wgpu::TextureDescriptor {
+        size,
         mip_level_count: 1,
         sample_count,
         dimension: wgpu::TextureDimension::D2,
-        format: sc_desc.format,
+        format,
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        label: None,
+        label,
     };
 
     device
-        .create_texture(multisampled_frame_descriptor)
+        .create_texture(texture_descriptor)
         .create_default_view()
 }
 
@@ -451,6 +455,7 @@ pub struct Renderer {
     queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
+    depth_buffer: wgpu::TextureView,
     mesh_pipeline: Pipeline,
     render_cursor: bool,
     cursor_pipeline: Pipeline,
@@ -558,7 +563,15 @@ impl Renderer {
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
             }],
-            depth_stencil_state: None,
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_read_mask: 0,
+                stencil_write_mask: 0,
+            }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
@@ -770,7 +783,15 @@ impl Renderer {
                 alpha_blend: wgpu::BlendDescriptor::REPLACE,
                 write_mask: wgpu::ColorWrite::ALL,
             }],
-            depth_stencil_state: None,
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_read_mask: 0,
+                stencil_write_mask: 0,
+            }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
@@ -802,8 +823,21 @@ impl Renderer {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
-        let multisampled_framebuffer =
-            create_multisampled_framebuffer(&device, &sc_desc, SAMPLE_COUNT);
+        let multisampled_framebuffer = create_texture_view(
+            &device,
+            &sc_desc,
+            SAMPLE_COUNT,
+            sc_desc.format,
+            Some("MSAAFrameBuffer"),
+        );
+
+        let depth_buffer = create_texture_view(
+            &device,
+            &sc_desc,
+            SAMPLE_COUNT,
+            DEPTH_FORMAT,
+            Some("DepthBuffer"),
+        );
 
         Renderer {
             surface,
@@ -811,6 +845,7 @@ impl Renderer {
             queue,
             sc_desc,
             swap_chain,
+            depth_buffer,
             camera,
             mesh_pipeline: Pipeline {
                 pipeline: mesh_pipeline,
@@ -980,8 +1015,20 @@ impl Renderer {
         let mx_ref = mx.as_ref();
         self.queue
             .write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
-        self.multisampled_framebuffer =
-            create_multisampled_framebuffer(&self.device, &self.sc_desc, SAMPLE_COUNT);
+        self.multisampled_framebuffer = create_texture_view(
+            &self.device,
+            &self.sc_desc,
+            SAMPLE_COUNT,
+            self.sc_desc.format,
+            Some("MSAAFrameBuffer"),
+        );
+        self.depth_buffer = create_texture_view(
+            &self.device,
+            &self.sc_desc,
+            SAMPLE_COUNT,
+            DEPTH_FORMAT,
+            Some("DepthBuffer"),
+        );
     }
 
     pub fn render(&mut self) {
@@ -999,7 +1046,7 @@ impl Renderer {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut rpass_depth = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &self.multisampled_framebuffer,
                     resolve_target: Some(&frame.output.view),
@@ -1013,12 +1060,32 @@ impl Renderer {
                         store: true,
                     },
                 }],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_buffer,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
+            self.mesh_pipeline.draw(&mut rpass_depth);
+            if self.voxel_pipeline.index_count > 0 {
+                self.voxel_pipeline.draw(&mut rpass_depth);
+            }
+        }
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &self.multisampled_framebuffer,
+                    resolve_target: Some(&frame.output.view),
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                }],
                 depth_stencil_attachment: None,
             });
-            self.mesh_pipeline.draw(&mut rpass);
-            if self.voxel_pipeline.index_count > 0 {
-                self.voxel_pipeline.draw(&mut rpass);
-            }
             if self.render_cursor {
                 self.cursor_pipeline.draw(&mut rpass);
             }
