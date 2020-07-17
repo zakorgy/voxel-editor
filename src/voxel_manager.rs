@@ -1,6 +1,17 @@
 use crate::geometry::Cuboid;
 use cgmath::Vector3;
 
+bitflags! {
+    pub struct CubeFace: u32 {
+        const FRONT =  0b00000001;
+        const BACK =   0b00000010;
+        const TOP =    0b00000100;
+        const BOTTOM = 0b00001000;
+        const LEFT =   0b00010000;
+        const RIGHT =  0b00100000;
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct CubeDescriptor {
     pub color: [f32; 4],
