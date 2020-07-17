@@ -1,6 +1,17 @@
 use crate::geometry::Cuboid;
 use cgmath::Vector3;
 
+bitflags! {
+    pub struct CubeFaces: u32 {
+        const FRONT =  0b00000001;
+        const BACK =   0b00000010;
+        const TOP =    0b00000100;
+        const BOTTOM = 0b00001000;
+        const LEFT =   0b00010000;
+        const RIGHT =  0b00100000;
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct CubeDescriptor {
     pub color: [f32; 4],
@@ -53,5 +64,36 @@ impl VoxelManager {
                 }
             }
         }
+    }
+
+    pub fn visible_faces(&self, pos: Vector3<usize>) -> CubeFaces {
+        let mut cube_faces = CubeFaces::empty();
+        if (pos.x > 0 && self.cubes[pos.x - 1][pos.y][pos.z].is_none()) || pos.x == 0 {
+            cube_faces |= CubeFaces::LEFT;
+        }
+        if (pos.x < (self.extent - 1) && self.cubes[pos.x + 1][pos.y][pos.z].is_none())
+            || (pos.x == self.extent - 1)
+        {
+            cube_faces |= CubeFaces::RIGHT;
+        }
+
+        if (pos.y > 0 && self.cubes[pos.x][pos.y - 1][pos.z].is_none()) || pos.y == 0 {
+            cube_faces |= CubeFaces::BOTTOM;
+        }
+        if (pos.y < (self.extent - 1) && self.cubes[pos.x][pos.y + 1][pos.z].is_none())
+            || (pos.y == self.extent - 1)
+        {
+            cube_faces |= CubeFaces::TOP;
+        }
+
+        if (pos.z > 0 && self.cubes[pos.x][pos.y][pos.z - 1].is_none()) || pos.z == 0 {
+            cube_faces |= CubeFaces::BACK;
+        }
+        if (pos.z < (self.extent - 1) && self.cubes[pos.x][pos.y][pos.z + 1].is_none())
+            || (pos.z == self.extent - 1)
+        {
+            cube_faces |= CubeFaces::FRONT;
+        }
+        cube_faces
     }
 }

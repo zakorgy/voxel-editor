@@ -396,6 +396,8 @@ impl VoxelManager {
             for y in 0..self.extent {
                 for z in 0..self.extent {
                     if let Some(desc) = self.cubes[x][y][z] {
+                        let cube_faces = self.visible_faces(cgmath::Vector3::new(x, y, z));
+                        println!("Visible faces {:?}", cube_faces);
                         idx = vertex_data.len() as u16;
                         for i in 0..6 {
                             step = 4 * i;

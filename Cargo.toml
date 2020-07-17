@@ -32,6 +32,7 @@ git = "https://github.com/zakorgy/camera_controllers"
 rev = "3b50999f4bfe2d03756b2233dd2f59ea78a0494b"
 
 [dependencies]
+bitflags = "1.2"
 bytemuck = "1"
 cgmath = "0.17"
 env_logger = "0.7"
