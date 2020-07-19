@@ -386,7 +386,7 @@ impl Cuboid {
 }
 
 impl VoxelManager {
-    pub fn vertices(&self) -> (Vec<VoxelVertex>, Vec<u16>) {
+    pub fn vertices(&self) -> (Vec<VoxelVertex>, Vec<u32>) {
         let mut vertex_data = Vec::new();
         let mut index_data = Vec::new();
         let mut step;
@@ -396,7 +396,7 @@ impl VoxelManager {
             for y in 0..self.extent {
                 for z in 0..self.extent {
                     if let Some(desc) = self.cubes[x][y][z] {
-                        idx = vertex_data.len() as u16;
+                        idx = vertex_data.len() as u32;
                         for i in 0..6 {
                             step = 4 * i;
                             index_data.extend_from_slice(&[
@@ -720,7 +720,7 @@ impl Renderer {
             label: None,
             // We can have a maximum number of mc * mc * mc voxel
             // We use 36 indices to draw a voxel
-            size: mc * mc * mc * 36 * mem::size_of::<u16>() as u64,
+            size: mc * mc * mc * 36 * mem::size_of::<u32>() as u64,
             usage: wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
             mapped_at_creation: false,
         });
@@ -793,7 +793,7 @@ impl Renderer {
                 stencil_write_mask: 0,
             }),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint16,
+                index_format: wgpu::IndexFormat::Uint32,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
                     stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::InputStepMode::Vertex,
