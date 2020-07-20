@@ -1,6 +1,7 @@
 mod camera;
 mod editor;
 mod geometry;
+mod light;
 mod renderer;
 mod voxel_manager;
 

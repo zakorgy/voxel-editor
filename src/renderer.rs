@@ -1,5 +1,6 @@
 use crate::camera::CameraWrapper;
 use crate::geometry::*;
+use crate::light::*;
 use crate::voxel_manager::VoxelManager;
 use cgmath;
 use wgpu;
@@ -466,6 +467,9 @@ pub struct Renderer {
     multisampled_framebuffer: wgpu::TextureView,
     pub mesh_count: u16,
     voxel_manager: VoxelManager,
+    light: Light,
+    light_uniform_buf: wgpu::Buffer,
+    lights_are_dirty: bool,
 }
 
 impl Renderer {
@@ -725,19 +729,36 @@ impl Renderer {
             mapped_at_creation: false,
         });
 
+        let light_uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: mem::size_of::<LightRaw>() as u64,
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
-            bindings: &[wgpu::BindGroupLayoutEntry::new(
-                0,
-                wgpu::ShaderStage::VERTEX,
-                wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
-                    min_binding_size: wgpu::BufferSize::new(
-                        mem::size_of::<cgmath::Matrix4<f32>>() as _
-                    ),
-                },
-            )],
+            bindings: &[
+                wgpu::BindGroupLayoutEntry::new(
+                    0,
+                    wgpu::ShaderStage::VERTEX,
+                    wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: wgpu::BufferSize::new(
+                            mem::size_of::<cgmath::Matrix4<f32>>() as _,
+                        ),
+                    },
+                ),
+                wgpu::BindGroupLayoutEntry::new(
+                    1, // lights
+                    wgpu::ShaderStage::FRAGMENT,
+                    wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                        min_binding_size: wgpu::BufferSize::new(mem::size_of::<LightRaw>() as u64),
+                    },
+                ),
+            ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
@@ -746,10 +767,16 @@ impl Renderer {
         // Create bind group
         let voxel_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
-            bindings: &[wgpu::Binding {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
-            }],
+            bindings: &[
+                wgpu::Binding {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
+                },
+                wgpu::Binding {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Buffer(light_uniform_buf.slice(..)),
+                },
+            ],
             label: None,
         });
 
@@ -813,7 +840,7 @@ impl Renderer {
                         // Normal
                         wgpu::VertexAttributeDescriptor {
                             format: wgpu::VertexFormat::Float4,
-                            offset: 4 * 4,
+                            offset: 8 * 4,
                             shader_location: 2,
                         },
                     ],
@@ -875,6 +902,17 @@ impl Renderer {
             multisampled_framebuffer,
             voxel_manager: VoxelManager::new(mesh_count as usize),
             mesh_count,
+            light: Light {
+                pos: cgmath::Point3::new(18.0, 18.0, 18.0),
+                color: wgpu::Color {
+                    r: 1.0,
+                    g: 1.0,
+                    b: 1.0,
+                    a: 1.0,
+                },
+            },
+            light_uniform_buf,
+            lights_are_dirty: true,
         }
     }
 
@@ -1041,6 +1079,15 @@ impl Renderer {
                     .expect("Failed to acquire next swap chain texture!")
             }
         };
+
+        if self.lights_are_dirty {
+            self.lights_are_dirty = false;
+            self.queue.write_buffer(
+                &self.light_uniform_buf,
+                0,
+                bytemuck::bytes_of(&self.light.to_raw()),
+            );
+        }
 
         let mut encoder = self
             .device
