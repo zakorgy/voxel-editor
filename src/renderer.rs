@@ -529,6 +529,8 @@ impl Renderer {
                     b: 1.0,
                     a: 1.0,
                 },
+                fov: 60.0,
+                depth: 0.1 .. 2.0 * mesh_count as f32,
             },
             light_uniform_buf,
             lights_are_dirty: true,
