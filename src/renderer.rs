@@ -903,7 +903,7 @@ impl Renderer {
             voxel_manager: VoxelManager::new(mesh_count as usize),
             mesh_count,
             light: Light {
-                pos: cgmath::Point3::new(18.0, 18.0, 18.0),
+                pos: cgmath::Point3::new((mesh_count + 2) as f32, (mesh_count + 2) as f32, (mesh_count + 2) as f32),
                 color: wgpu::Color {
                     r: 1.0,
                     g: 1.0,
