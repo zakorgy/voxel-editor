@@ -3,6 +3,7 @@ mod editor;
 mod geometry;
 mod light;
 mod renderer;
+mod vertex;
 mod voxel_manager;
 
 use editor::Editor;
