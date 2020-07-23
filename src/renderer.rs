@@ -8,11 +8,13 @@ use crate::voxel_manager::VoxelManager;
 use cgmath;
 use iced_wgpu::wgpu;
 use iced_winit::mouse::Interaction;
+use std::rc::Rc;
 
 pub const DEFAULT_MESH_COUNT: u16 = 32;
 const SAMPLE_COUNT: u32 = 4;
 
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
 fn create_texture_view(
     device: &wgpu::Device,
@@ -53,8 +55,8 @@ fn generate_cursor_vertices(bbox: &BoundingBox) -> (Vec<Vertex>, Vec<u16>) {
 struct Pipeline {
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
-    vertex_buf: wgpu::Buffer,
-    index_buf: wgpu::Buffer,
+    vertex_buf: Rc<wgpu::Buffer>,
+    index_buf: Rc<wgpu::Buffer>,
     index_count: usize,
 }
 
@@ -84,6 +86,8 @@ pub struct Renderer {
     render_cursor: bool,
     cursor_pipeline: Pipeline,
     voxel_pipeline: Pipeline,
+    shadow_pipeline: Pipeline,
+    shadow_view: wgpu::TextureView,
     ui_pipeline: wgpu::RenderPipeline,
     cursor_cube: BoundingBox,
     draw_cube: Option<BoundingBox>,
@@ -334,27 +338,55 @@ impl Renderer {
 
         //****************************** Setting up voxel pipeline ******************************
         let mc = mesh_count as u64;
-        let vertex_buf_voxel = device.create_buffer(&wgpu::BufferDescriptor {
+        let vertex_buf_voxel = Rc::new(device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             // We can have a maximum number of mc * mc * mc voxel
             // Each voxel has 24 vertices
             size: mc * mc * mc * 24 * mem::size_of::<VoxelVertex>() as u64,
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-        });
+        }));
 
-        let index_buf_voxel = device.create_buffer(&wgpu::BufferDescriptor {
+        let index_buf_voxel = Rc::new(device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             // We can have a maximum number of mc * mc * mc voxel
             // We use 36 indices to draw a voxel
             size: mc * mc * mc * 36 * mem::size_of::<u32>() as u64,
             usage: wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
-        });
+        }));
 
         let light_uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: mem::size_of::<LightRaw>() as u64,
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         });
+
+        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: wgpu::CompareFunction::Less,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: std::f32::MAX,
+        });
+
+        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
+            size: wgpu::Extent3d {
+                width: sc_desc.width,
+                height: sc_desc.height,
+                depth: 1,
+            },
+            array_layer_count: 1,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: SHADOW_FORMAT,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            label: None,
+        });
+        let shadow_view = shadow_texture.create_default_view();
 
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -369,6 +401,20 @@ impl Renderer {
                     binding: 1, // lights
                     visibility: wgpu::ShaderStage::VERTEX,
                     ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::SampledTexture {
+                        multisampled: false,
+                        component_type: wgpu::TextureComponentType::Float,
+                        dimension: wgpu::TextureViewDimension::D2,
+                    },
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler { comparison: true },
                 },
             ],
         });
@@ -393,6 +439,14 @@ impl Renderer {
                         buffer: &light_uniform_buf,
                         range: 0..mem::size_of::<LightRaw>() as u64,
                     },
+                },
+                wgpu::Binding {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&shadow_view),
+                },
+                wgpu::Binding {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&shadow_sampler),
                 },
             ],
             label: None,
@@ -472,6 +526,91 @@ impl Renderer {
             alpha_to_coverage_enabled: false,
         });
 
+        //****************************** Setting up shadow pipeline ******************************
+
+        // Create pipeline layout
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            bindings: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            }],
+        });
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            bind_group_layouts: &[&bind_group_layout],
+        });
+
+        // Create bind group
+        let shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &bind_group_layout,
+            bindings: &[wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &light_uniform_buf,
+                    range: 0..mem::size_of::<LightRaw>() as u64,
+                },
+            }],
+            label: None,
+        });
+
+        let vs_bytes = include_bytes!("../shaders/shadow.vert.spv");
+        let fs_bytes = include_bytes!("../shaders/shadow.frag.spv");
+
+        // Create the shadow rendering pipeline
+        let vs_module_shadow = device
+            .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap());
+        let fs_module_shadow = device
+            .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
+
+        let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            layout: &pipeline_layout,
+            vertex_stage: wgpu::ProgrammableStageDescriptor {
+                module: &vs_module_shadow,
+                entry_point: "main",
+            },
+            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+                module: &fs_module_shadow,
+                entry_point: "main",
+            }),
+            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
+                depth_bias: 2,
+                depth_bias_slope_scale: 2.0,
+                depth_bias_clamp: 0.0,
+            }),
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            color_states: &[],
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+                format: SHADOW_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_read_mask: 0,
+                stencil_write_mask: 0,
+            }),
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint32,
+                vertex_buffers: &[wgpu::VertexBufferDescriptor {
+                    stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
+                    step_mode: wgpu::InputStepMode::Vertex,
+                    attributes: &[
+                        // Position
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float3,
+                            offset: 0,
+                            shader_location: 0,
+                        },
+                    ],
+                }],
+            },
+            sample_count: 1,
+            sample_mask: !0,
+            alpha_to_coverage_enabled: false,
+        });
+
         let ui_pipeline = build_ui_pipeline(&device);
         let multisampled_framebuffer = create_texture_view(
             &device,
@@ -500,20 +639,27 @@ impl Renderer {
             mesh_pipeline: Pipeline {
                 pipeline: mesh_pipeline,
                 bind_group: mesh_bind_group,
-                vertex_buf: vertex_buf_mesh,
-                index_buf: index_buf_mesh,
+                vertex_buf: Rc::new(vertex_buf_mesh),
+                index_buf: Rc::new(index_buf_mesh),
                 index_count: mesh_index_data.len(),
             },
             cursor_pipeline: Pipeline {
                 pipeline: cursor_pipeline,
                 bind_group: cursor_bind_group,
-                vertex_buf: vertex_buf_cursor,
-                index_buf: index_buf_cursor,
+                vertex_buf: Rc::new(vertex_buf_cursor),
+                index_buf: Rc::new(index_buf_cursor),
                 index_count: cursor_index_data.len(),
             },
             voxel_pipeline: Pipeline {
                 pipeline: voxel_pipeline,
                 bind_group: voxel_bind_group,
+                vertex_buf: vertex_buf_voxel.clone(),
+                index_buf: index_buf_voxel.clone(),
+                index_count: 0,
+            },
+            shadow_pipeline: Pipeline {
+                pipeline: shadow_pipeline,
+                bind_group: shadow_bind_group,
                 vertex_buf: vertex_buf_voxel,
                 index_buf: index_buf_voxel,
                 index_count: 0,
@@ -537,8 +683,11 @@ impl Renderer {
                     b: 1.0,
                     a: 1.0,
                 },
+                fov: 120.0,
+                depth: 0.1..2.0 * mesh_count as f32,
             },
             light_uniform_buf,
+            shadow_view,
             lights_are_dirty: true,
             command_buffers: Vec::new(),
             ui_pipeline,
@@ -661,6 +810,7 @@ impl Renderer {
                 &mut self.command_buffers,
             );
             self.voxel_pipeline.index_count = index_data.len();
+            self.shadow_pipeline.index_count = self.voxel_pipeline.index_count;
         }
     }
 
@@ -704,6 +854,7 @@ impl Renderer {
                 );
             }
             self.voxel_pipeline.index_count = index_data.len();
+            self.shadow_pipeline.index_count = self.voxel_pipeline.index_count;
         }
     }
 
@@ -814,6 +965,21 @@ impl Renderer {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        {
+            let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.shadow_view,
+                    depth_load_op: wgpu::LoadOp::Clear,
+                    depth_store_op: wgpu::StoreOp::Store,
+                    stencil_load_op: wgpu::LoadOp::Clear,
+                    stencil_store_op: wgpu::StoreOp::Store, // TODO: check if this can be Clear
+                    clear_depth: 1.0,
+                    clear_stencil: 0,
+                }),
+            });
+            self.shadow_pipeline.draw(&mut shadow_pass);
+        }
         {
             let mut rpass_depth = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
