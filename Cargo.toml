@@ -6,25 +6,6 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies.wgc]
-package = "wgpu-core"
-version = "0.5"
-git = "https://github.com/gfx-rs/wgpu"
-rev = "43c67ac59c2dedaa4d78601bc460aab7c3257973"
-features = ["raw-window-handle"]
-
-[dependencies.wgt]
-package = "wgpu-types"
-version = "0.5"
-git = "https://github.com/gfx-rs/wgpu"
-rev = "43c67ac59c2dedaa4d78601bc460aab7c3257973"
-
-[dependencies.wgpu]
-package = "wgpu"
-version = "0.5.0"
-git = "https://github.com/gfx-rs/wgpu-rs"
-rev = "0c7c3afebb12bf411d6964887b85e5fd152057f5"
-
 [dependencies.camera_controllers]
 package = "camera_controllers"
 version = "0.31.0"
@@ -37,7 +18,8 @@ cgmath = "0.17"
 env_logger = "0.7"
 futures = "0.3"
 log = "0.4"
-winit = "0.22.1"
+winit = "0.22"
+wgpu = "0.5.2"
 
 [features]
 debug_ray = []

@@ -171,32 +171,29 @@ impl Editor {
     pub fn run_editor(event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window) {
         log::info!("Initializing the surface...");
 
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
-        let (size, surface) = unsafe {
+        let (size, surface) = {
             let size = window.inner_size();
-            let surface = instance.create_surface(&window);
+            let surface = wgpu::Surface::create(&window);
             (size, surface)
         };
 
-        let adapter = block_on(instance.request_adapter(
+        let adapter = block_on(wgpu::Adapter::request(
             &wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
                 compatible_surface: Some(&surface),
             },
-            wgpu::UnsafeFeatures::disallow(),
+            wgpu::BackendBit::PRIMARY,
         ))
         .unwrap();
 
-        let trace_dir = std::env::var("WGPU_TRACE");
         let (device, queue) = block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
-                features: wgpu::Features::empty(),
+                extensions: wgpu::Extensions {
+                    anisotropic_filtering: false,
+                },
                 limits: wgpu::Limits::default(),
-                shader_validation: true,
             },
-            trace_dir.ok().as_ref().map(std::path::Path::new),
-        ))
-        .unwrap();
+        ));
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -228,7 +225,7 @@ impl Editor {
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
-            let _ = (&instance, &adapter); // force ownership by the closure
+            let _ = &adapter; // force ownership by the closure
             *control_flow = if cfg!(feature = "metal-auto-capture") {
                 ControlFlow::Exit
             } else {

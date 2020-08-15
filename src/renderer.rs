@@ -140,6 +140,7 @@ fn create_texture_view(
     let texture_descriptor = &wgpu::TextureDescriptor {
         size,
         mip_level_count: 1,
+        array_layer_count: 1,
         sample_count,
         dimension: wgpu::TextureDimension::D2,
         format,
@@ -443,8 +444,8 @@ impl Pipeline {
     fn draw<'a>(&'a mut self, render_pass: &mut wgpu::RenderPass<'a>) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &self.bind_group, &[]);
-        render_pass.set_index_buffer(self.index_buf.slice(..));
-        render_pass.set_vertex_buffer(0, self.vertex_buf.slice(..));
+        render_pass.set_index_buffer(&self.index_buf, 0, 0);
+        render_pass.set_vertex_buffer(0, &self.vertex_buf, 0, 0);
         render_pass.draw_indexed(0..self.index_count as u32, 0, 0..1);
     }
 }
@@ -457,18 +458,19 @@ pub struct Renderer {
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     depth_buffer: wgpu::TextureView,
+    multisampled_framebuffer: wgpu::TextureView,
+    mvp_buf: wgpu::Buffer,
+    light_uniform_buf: wgpu::Buffer,
+    command_buffers: Vec<wgpu::CommandBuffer>,
     mesh_pipeline: Pipeline,
     render_cursor: bool,
     cursor_pipeline: Pipeline,
     voxel_pipeline: Pipeline,
     cursor_cube: Cuboid,
     draw_cube: Option<Cuboid>,
-    mvp_buf: wgpu::Buffer,
-    multisampled_framebuffer: wgpu::TextureView,
     pub mesh_count: u16,
     voxel_manager: VoxelManager,
     light: Light,
-    light_uniform_buf: wgpu::Buffer,
     lights_are_dirty: bool,
 }
 
@@ -502,16 +504,11 @@ impl Renderer {
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
-            bindings: &[wgpu::BindGroupLayoutEntry::new(
-                0,
-                wgpu::ShaderStage::VERTEX,
-                wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
-                    min_binding_size: wgpu::BufferSize::new(
-                        mem::size_of::<cgmath::Matrix4<f32>>() as _
-                    ),
-                },
-            )],
+            bindings: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            }],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
@@ -528,20 +525,27 @@ impl Renderer {
             bytemuck::cast_slice(mx_ref),
             wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         );
+        let uniform_buf_size = mem::size_of::<[f32; 16]>() as u64;
 
         // Create bind group
         let mesh_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layout,
             bindings: &[wgpu::Binding {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &uniform_buf,
+                    range: 0 .. uniform_buf_size,
+                },
             }],
             label: None,
         });
 
+        let vs_bytes = include_bytes!("shader.vert.spv");
+        let fs_bytes = include_bytes!("shader.frag.spv");
+
         // Create the mesh rendering pipeline
-        let vs_module = device.create_shader_module(wgpu::include_spirv!("shader.vert.spv"));
-        let fs_module = device.create_shader_module(wgpu::include_spirv!("shader.frag.spv"));
+        let vs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap());
+        let fs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
 
         let mesh_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
@@ -623,16 +627,13 @@ impl Renderer {
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
-            bindings: &[wgpu::BindGroupLayoutEntry::new(
-                0,
-                wgpu::ShaderStage::VERTEX,
-                wgpu::BindingType::UniformBuffer {
-                    dynamic: false,
-                    min_binding_size: wgpu::BufferSize::new(
-                        mem::size_of::<cgmath::Matrix4<f32>>() as _
-                    ),
+            bindings: &[wgpu::BindGroupLayoutEntry{
+                binding: 0,
+                visibility: wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer {
+                    dynamic: false
                 },
-            )],
+            }],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
@@ -643,7 +644,10 @@ impl Renderer {
             layout: &bind_group_layout,
             bindings: &[wgpu::Binding {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &uniform_buf,
+                    range: 0 .. uniform_buf_size,
+                }
             }],
             label: None,
         });
@@ -717,7 +721,6 @@ impl Renderer {
             // Each voxel has 24 vertices
             size: mc * mc * mc * 24 * mem::size_of::<VoxelVertex>() as u64,
             usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
         });
 
         let index_buf_voxel = device.create_buffer(&wgpu::BufferDescriptor {
@@ -726,38 +729,32 @@ impl Renderer {
             // We use 36 indices to draw a voxel
             size: mc * mc * mc * 36 * mem::size_of::<u32>() as u64,
             usage: wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
         });
 
         let light_uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             size: mem::size_of::<LightRaw>() as u64,
             usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-            mapped_at_creation: false,
         });
 
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
             bindings: &[
-                wgpu::BindGroupLayoutEntry::new(
-                    0,
-                    wgpu::ShaderStage::VERTEX,
-                    wgpu::BindingType::UniformBuffer {
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer {
                         dynamic: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            mem::size_of::<cgmath::Matrix4<f32>>() as _,
-                        ),
                     },
-                ),
-                wgpu::BindGroupLayoutEntry::new(
-                    1, // lights
-                    wgpu::ShaderStage::FRAGMENT,
-                    wgpu::BindingType::UniformBuffer {
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1, // lights
+                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    ty: wgpu::BindingType::UniformBuffer {
                         dynamic: false,
-                        min_binding_size: wgpu::BufferSize::new(mem::size_of::<LightRaw>() as u64),
                     },
-                ),
+                },
             ],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -770,21 +767,30 @@ impl Renderer {
             bindings: &[
                 wgpu::Binding {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(uniform_buf.slice(..)),
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &uniform_buf,
+                        range: 0 .. uniform_buf_size,
+                    },
                 },
                 wgpu::Binding {
                     binding: 1,
-                    resource: wgpu::BindingResource::Buffer(light_uniform_buf.slice(..)),
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &light_uniform_buf,
+                        range: 0 .. mem::size_of::<LightRaw>() as u64,
+                    },
                 },
             ],
             label: None,
         });
 
+        let vs_bytes = include_bytes!("voxel_shader.vert.spv");
+        let fs_bytes = include_bytes!("voxel_shader.frag.spv");
+
         // Create the voxel rendering pipeline
         let vs_module_voxel =
-            device.create_shader_module(wgpu::include_spirv!("voxel_shader.vert.spv"));
+            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap());
         let fs_module_voxel =
-            device.create_shader_module(wgpu::include_spirv!("voxel_shader.frag.spv"));
+        device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
 
         let voxel_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
@@ -913,6 +919,7 @@ impl Renderer {
             },
             light_uniform_buf,
             lights_are_dirty: true,
+            command_buffers: Vec::new(),
         }
     }
 
@@ -923,8 +930,7 @@ impl Renderer {
                 .camera
                 .mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
             let mx_ref = mx.as_ref();
-            self.queue
-                .write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
+            Self::write_buffer(&self.device, bytemuck::cast_slice(mx_ref), &self.mvp_buf, &mut self.command_buffers);
         }
     }
 
@@ -940,11 +946,7 @@ impl Renderer {
                 HALF_ALPHA_RED.into(),
             );
             let vertex_data = self.cursor_cube.vertices();
-            self.queue.write_buffer(
-                &self.cursor_pipeline.vertex_buf,
-                0,
-                bytemuck::cast_slice(&vertex_data),
-            );
+            Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.cursor_pipeline.vertex_buf, &mut self.command_buffers);
             self.render_cursor = true;
         } else {
             self.render_cursor = false;
@@ -960,11 +962,7 @@ impl Renderer {
             );
             let draw_cube = self.cursor_cube.containing_cube(&end_cube);
             let vertex_data = draw_cube.vertices();
-            self.queue.write_buffer(
-                &self.cursor_pipeline.vertex_buf,
-                0,
-                bytemuck::cast_slice(&vertex_data),
-            );
+            Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.cursor_pipeline.vertex_buf, &mut self.command_buffers);
             self.draw_cube = Some(draw_cube);
             self.render_cursor = true;
         } else {
@@ -978,16 +976,8 @@ impl Renderer {
             cube.color = WHITE;
             self.voxel_manager.add_cube(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
-            self.queue.write_buffer(
-                &self.voxel_pipeline.vertex_buf,
-                0,
-                bytemuck::cast_slice(&vertex_data),
-            );
-            self.queue.write_buffer(
-                &self.voxel_pipeline.index_buf,
-                0,
-                bytemuck::cast_slice(&index_data),
-            );
+            Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.voxel_pipeline.vertex_buf, &mut self.command_buffers);
+            Self::write_buffer(&self.device, bytemuck::cast_slice(&index_data), &self.voxel_pipeline.index_buf, &mut self.command_buffers);
             self.voxel_pipeline.index_count = index_data.len();
         }
     }
@@ -997,16 +987,10 @@ impl Renderer {
             cube.rearrange();
             self.voxel_manager.erase_cube(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
-            self.queue.write_buffer(
-                &self.voxel_pipeline.vertex_buf,
-                0,
-                bytemuck::cast_slice(&vertex_data),
-            );
-            self.queue.write_buffer(
-                &self.voxel_pipeline.index_buf,
-                0,
-                bytemuck::cast_slice(&index_data),
-            );
+            if index_data.len() > 0 {
+                Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.voxel_pipeline.vertex_buf, &mut self.command_buffers);
+                Self::write_buffer(&self.device, bytemuck::cast_slice(&index_data), &self.voxel_pipeline.index_buf, &mut self.command_buffers);
+            }
             self.voxel_pipeline.index_count = index_data.len();
         }
     }
@@ -1031,16 +1015,8 @@ impl Renderer {
         index_data.push((vertex_data.len() - 1) as u16);
         vertex_data.push(vertex(far_pos.into(), BLUE));
         index_data.push((vertex_data.len() - 1) as u16);
-        self.queue.write_buffer(
-            &self.mesh_pipeline.vertex_buf,
-            0,
-            bytemuck::cast_slice(&vertex_data),
-        );
-        self.queue.write_buffer(
-            &self.mesh_pipeline.index_buf,
-            0,
-            bytemuck::cast_slice(&index_data),
-        );
+        Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.mesh_pipeline.vertex_buf, &mut self.command_buffers);
+        Self::write_buffer(&self.device, bytemuck::cast_slice(&index_data), &self.mesh_pipeline.index_buf, &mut self.command_buffers);
     }
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
@@ -1051,8 +1027,8 @@ impl Renderer {
             .camera
             .mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
         let mx_ref = mx.as_ref();
-        self.queue
-            .write_buffer(&self.mvp_buf, 0, bytemuck::cast_slice(mx_ref));
+        Self::write_buffer(&self.device, bytemuck::cast_slice(mx_ref), &self.mvp_buf, &mut self.command_buffers);
+
         self.multisampled_framebuffer = create_texture_view(
             &self.device,
             &self.sc_desc,
@@ -1069,24 +1045,34 @@ impl Renderer {
         );
     }
 
+    pub fn write_buffer(
+        device: &wgpu::Device,
+        data: &[u8],
+        buffer: &wgpu::Buffer,
+        command_buffers: &mut Vec<wgpu::CommandBuffer>,
+    ) {
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let temp_buf = device.create_buffer_with_data(data, wgpu::BufferUsage::COPY_SRC);
+
+        encoder.copy_buffer_to_buffer(&temp_buf, 0, &buffer, 0, data.len() as u64);
+        let command_buf = encoder.finish();
+        command_buffers.push(command_buf);
+    }
+
     pub fn render(&mut self) {
-        let frame = match self.swap_chain.get_next_frame() {
+        let frame = match self.swap_chain.get_next_texture() {
             Ok(frame) => frame,
             Err(_) => {
                 self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
                 self.swap_chain
-                    .get_next_frame()
+                    .get_next_texture()
                     .expect("Failed to acquire next swap chain texture!")
             }
         };
 
         if self.lights_are_dirty {
             self.lights_are_dirty = false;
-            self.queue.write_buffer(
-                &self.light_uniform_buf,
-                0,
-                bytemuck::bytes_of(&self.light.to_raw()),
-            );
+            Self::write_buffer(&self.device, bytemuck::bytes_of(&self.light.to_raw()), &self.light_uniform_buf, &mut self.command_buffers);
         }
 
         let mut encoder = self
@@ -1096,24 +1082,24 @@ impl Renderer {
             let mut rpass_depth = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &self.multisampled_framebuffer,
-                    resolve_target: Some(&frame.output.view),
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.8,
-                            b: 1.0,
-                            a: 1.0,
-                        }),
-                        store: true,
+                    resolve_target: Some(&frame.view),
+                    load_op: wgpu::LoadOp::Clear,
+                    store_op: wgpu::StoreOp::Store,
+                    clear_color: wgpu::Color {
+                        r: 0.0,
+                        g: 0.8,
+                        b: 1.0,
+                        a: 1.0,
                     },
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                     attachment: &self.depth_buffer,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
+                    depth_load_op: wgpu::LoadOp::Clear,
+                    depth_store_op: wgpu::StoreOp::Store,
+                    stencil_load_op: wgpu::LoadOp::Clear,
+                    stencil_store_op: wgpu::StoreOp::Store,
+                    clear_depth: 1.0,
+                    clear_stencil: 0,
                 }),
             });
             self.mesh_pipeline.draw(&mut rpass_depth);
@@ -1125,11 +1111,10 @@ impl Renderer {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &self.multisampled_framebuffer,
-                    resolve_target: Some(&frame.output.view),
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: true,
-                    },
+                    resolve_target: Some(&frame.view),
+                    load_op: wgpu::LoadOp::Load,
+                    store_op: wgpu::StoreOp::Store,
+                    clear_color: wgpu::Color::BLACK,
                 }],
                 depth_stencil_attachment: None,
             });
@@ -1138,7 +1123,8 @@ impl Renderer {
             }
         }
 
-        let command_buf = encoder.finish();
-        self.queue.submit(Some(command_buf));
+        let mut command_buffers = self.command_buffers.drain(..).collect::<Vec<_>>();
+        command_buffers.push(encoder.finish());
+        self.queue.submit(&command_buffers);
     }
 }
