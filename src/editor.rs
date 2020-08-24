@@ -1,6 +1,9 @@
+use crate::controls::EditOp;
 use crate::geometry::*;
 use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
+use crate::ui::Ui;
 use cgmath::Vector3;
+use iced_wgpu::wgpu;
 use futures::executor::block_on;
 use std::time;
 use winit::{
@@ -15,17 +18,11 @@ enum EditorState {
     EditFinished,
 }
 
-#[derive(Eq, PartialEq)]
-enum EditOperation {
-    Draw,
-    Erase,
-}
-
 pub struct Editor {
     window: winit::window::Window,
     renderer: Renderer,
+    ui: Ui,
     state: EditorState,
-    edit_op: EditOperation,
     cursor_pos_world: Vector3<f32>,
 }
 
@@ -61,23 +58,6 @@ impl Editor {
                 self.window.inner_size(),
             );
         }
-        if let event::WindowEvent::KeyboardInput {
-            input: event::KeyboardInput {
-                virtual_keycode: Some(event::VirtualKeyCode::Space),
-                state: event::ElementState::Pressed,
-                ..
-            },
-            ..
-        } = event
-        {
-            // Don't change edit op while drawing/erasing
-            if self.state == EditorState::ChangeView {
-                match self.edit_op {
-                    EditOperation::Draw => self.edit_op = EditOperation::Erase,
-                    EditOperation::Erase => self.edit_op = EditOperation::Draw,
-                };
-            }
-        };
 
         if self.state == EditorState::ChangeView {
             self.renderer.update_view(event);
@@ -155,9 +135,12 @@ impl Editor {
                     .update_draw_rectangle(intersection_point, closest_plane);
             }
             EditorState::EditFinished => {
-                match self.edit_op {
-                    EditOperation::Draw => self.renderer.draw_rectangle(),
-                    EditOperation::Erase => self.renderer.erase_rectangle(),
+                match self.ui.controls().edit_op() {
+                    EditOp::Draw => {
+                        let c = self.ui.controls().draw_color();
+                        self.renderer.draw_rectangle([c.r, c.g, c.b, c.a])
+                    },
+                    EditOp::Erase => self.renderer.erase_rectangle(),
                 };
                 self.state = EditorState::ChangeView;
             }
@@ -165,7 +148,13 @@ impl Editor {
     }
 
     fn redraw(&mut self) {
-        self.renderer.render();
+        let mouse_interaction = self.renderer.render(&mut self.ui);
+        // Update the mouse cursor
+        self.window.set_cursor_icon(
+            iced_winit::conversion::mouse_interaction(
+                mouse_interaction,
+            ),
+        );
     }
 
     pub fn run_editor(event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window) {
@@ -186,7 +175,7 @@ impl Editor {
         ))
         .unwrap();
 
-        let (device, queue) = block_on(adapter.request_device(
+        let (mut device, queue) = block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 extensions: wgpu::Extensions {
                     anisotropic_filtering: false,
@@ -197,12 +186,13 @@ impl Editor {
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8Unorm,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Mailbox,
         };
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
+        let ui = Ui::new(&window, &mut device);
 
         log::info!("Initializing the Renderer...");
         let renderer = Renderer::init(
@@ -216,9 +206,9 @@ impl Editor {
         let mut editor = Editor {
             window,
             renderer,
+            ui,
             state: EditorState::ChangeView,
             cursor_pos_world: Vector3::new(0.0, 0.0, 0.0),
-            edit_op: EditOperation::Draw,
         };
 
         let mut last_update_inst = time::Instant::now();
@@ -234,6 +224,7 @@ impl Editor {
             match event {
                 event::Event::MainEventsCleared => {
                     if last_update_inst.elapsed() > time::Duration::from_millis(20) {
+                        editor.ui.update_state();
                         editor.window.request_redraw();
                         last_update_inst = time::Instant::now();
                     }
@@ -245,22 +236,25 @@ impl Editor {
                     log::info!("Resizing to {:?}", size);
                     editor.resize(size);
                 }
-                event::Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::KeyboardInput {
-                        input:
-                            event::KeyboardInput {
-                                virtual_keycode: Some(event::VirtualKeyCode::Escape),
-                                state: event::ElementState::Pressed,
-                                ..
-                            },
-                        ..
+                event::Event::WindowEvent { event, .. } =>
+                {
+                    match event {
+                        WindowEvent::KeyboardInput {
+                            input:
+                                event::KeyboardInput {
+                                    virtual_keycode: Some(event::VirtualKeyCode::Escape),
+                                    state: event::ElementState::Pressed,
+                                    ..
+                                },
+                            ..
+                        }
+                        | WindowEvent::CloseRequested => {
+                            *control_flow = ControlFlow::Exit;
+                        },
+                        _ => {},
                     }
-                    | WindowEvent::CloseRequested => {
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    _ => {
-                        editor.update(event);
-                    }
+                    editor.ui.update(&event, editor.window.scale_factor());
+                    editor.update(event);
                 },
                 event::Event::RedrawRequested(_) => {
                     editor.redraw();

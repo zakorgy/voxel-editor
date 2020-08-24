@@ -12,6 +12,19 @@ version = "0.31.0"
 git = "https://github.com/zakorgy/camera_controllers"
 rev = "3b50999f4bfe2d03756b2233dd2f59ea78a0494b"
 
+[dependencies.iced_winit]
+package = "iced_winit"
+version = "0.1.1"
+git = "https://github.com/hecrj/iced"
+rev = "00d66da0cee1dc7faeccc5b3f0794a0393a38da7"
+
+[dependencies.iced_wgpu]
+package = "iced_wgpu"
+version = "0.2.2"
+features = ["canvas"]
+git = "https://github.com/hecrj/iced"
+rev = "00d66da0cee1dc7faeccc5b3f0794a0393a38da7"
+
 [dependencies]
 bytemuck = "1"
 cgmath = "0.17"
@@ -19,7 +32,6 @@ env_logger = "0.7"
 futures = "0.3"
 log = "0.4"
 winit = "0.22"
-wgpu = "0.5.2"
 
 [features]
 debug_ray = []

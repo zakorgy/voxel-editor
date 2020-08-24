@@ -1,7 +1,6 @@
 use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 
 pub const EPSYLON: f32 = 0.000001;
-pub const WHITE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 pub struct Plane {
     pub point: Vector3<f32>,

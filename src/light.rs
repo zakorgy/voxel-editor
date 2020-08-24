@@ -1,4 +1,5 @@
 use bytemuck::{Pod, Zeroable};
+use iced_wgpu::wgpu;
 use cgmath;
 
 pub struct Light {

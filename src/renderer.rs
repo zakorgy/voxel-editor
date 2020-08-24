@@ -2,8 +2,10 @@ use crate::camera::CameraWrapper;
 use crate::geometry::*;
 use crate::light::*;
 use crate::voxel_manager::VoxelManager;
+use crate::ui::{build_ui_pipeline, Ui};
 use cgmath;
-use wgpu;
+use iced_wgpu::{wgpu};
+use iced_winit::mouse::Interaction;
 
 pub const DEFAULT_MESH_COUNT: u16 = 16;
 const SAMPLE_COUNT: u32 = 4;
@@ -453,10 +455,10 @@ impl Pipeline {
 pub struct Renderer {
     pub camera: CameraWrapper,
     surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
-    swap_chain: wgpu::SwapChain,
+    pub swap_chain: wgpu::SwapChain,
     depth_buffer: wgpu::TextureView,
     multisampled_framebuffer: wgpu::TextureView,
     mvp_buf: wgpu::Buffer,
@@ -466,6 +468,7 @@ pub struct Renderer {
     render_cursor: bool,
     cursor_pipeline: Pipeline,
     voxel_pipeline: Pipeline,
+    ui_pipeline: wgpu::RenderPipeline,
     cursor_cube: Cuboid,
     draw_cube: Option<Cuboid>,
     pub mesh_count: u16,
@@ -856,6 +859,8 @@ impl Renderer {
             sample_mask: !0,
             alpha_to_coverage_enabled: false,
         });
+
+        let ui_pipeline = build_ui_pipeline(&device);
         let multisampled_framebuffer = create_texture_view(
             &device,
             &sc_desc,
@@ -920,6 +925,7 @@ impl Renderer {
             light_uniform_buf,
             lights_are_dirty: true,
             command_buffers: Vec::new(),
+            ui_pipeline,
         }
     }
 
@@ -970,10 +976,10 @@ impl Renderer {
         }
     }
 
-    pub fn draw_rectangle(&mut self) {
+    pub fn draw_rectangle(&mut self, color: [f32; 4]) {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
-            cube.color = WHITE;
+            cube.color = color;
             self.voxel_manager.add_cube(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
             Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.voxel_pipeline.vertex_buf, &mut self.command_buffers);
@@ -1059,7 +1065,7 @@ impl Renderer {
         command_buffers.push(command_buf);
     }
 
-    pub fn render(&mut self) {
+    pub fn render(&mut self, ui: &mut Ui) -> Interaction {
         let frame = match self.swap_chain.get_next_texture() {
             Ok(frame) => frame,
             Err(_) => {
@@ -1122,9 +1128,30 @@ impl Renderer {
                 self.cursor_pipeline.draw(&mut rpass);
             }
         }
+        // Render ui
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.view,
+                    resolve_target: None,
+                    load_op: wgpu::LoadOp::Load,
+                    store_op: wgpu::StoreOp::Store,
+                    clear_color: wgpu::Color::BLACK,
+                }],
+                depth_stencil_attachment: None,
+            });
+            rpass.set_pipeline(&self.ui_pipeline);
+        }
+
+        let mouse_interaction = ui.draw(
+            &mut self.device,
+            &mut encoder,
+            &frame.view,
+        );
 
         let mut command_buffers = self.command_buffers.drain(..).collect::<Vec<_>>();
         command_buffers.push(encoder.finish());
         self.queue.submit(&command_buffers);
+        mouse_interaction
     }
 }
