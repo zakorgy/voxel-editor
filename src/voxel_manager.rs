@@ -1,4 +1,4 @@
-use crate::geometry::Cuboid;
+use crate::geometry::BoundingBox;
 use cgmath::Vector3;
 
 #[derive(Copy, Clone)]
@@ -13,43 +13,43 @@ impl CubeDescriptor {
 }
 
 pub struct VoxelManager {
-    pub cubes: Vec<Vec<Vec<Option<CubeDescriptor>>>>,
+    pub boxes: Vec<Vec<Vec<Option<CubeDescriptor>>>>,
     pub extent: usize,
 }
 
 impl VoxelManager {
     pub fn new(extent: usize) -> Self {
         VoxelManager {
-            cubes: vec![vec![vec![None; extent]; extent]; extent],
+            boxes: vec![vec![vec![None; extent]; extent]; extent],
             extent,
         }
     }
 
-    pub fn add_cube(&mut self, cuboid: Cuboid) {
+    pub fn add_box(&mut self, bbox: BoundingBox) {
         let origin: Vector3<usize> = Vector3::new(
-            cuboid.corner.x as usize,
-            cuboid.corner.y as usize,
-            cuboid.corner.z as usize,
+            bbox.corner.x as usize,
+            bbox.corner.y as usize,
+            bbox.corner.z as usize,
         );
-        for x in origin.x..origin.x + cuboid.extent.x as usize {
-            for y in origin.y..origin.y + cuboid.extent.y as usize {
-                for z in origin.z..origin.z + cuboid.extent.z as usize {
-                    self.cubes[x][y][z] = Some(CubeDescriptor::new(cuboid.color.into()));
+        for x in origin.x..origin.x + bbox.extent.x as usize {
+            for y in origin.y..origin.y + bbox.extent.y as usize {
+                for z in origin.z..origin.z + bbox.extent.z as usize {
+                    self.boxes[x][y][z] = Some(CubeDescriptor::new(bbox.color.into()));
                 }
             }
         }
     }
 
-    pub fn erase_cube(&mut self, cuboid: Cuboid) {
+    pub fn erase_box(&mut self, bbox: BoundingBox) {
         let origin: Vector3<usize> = Vector3::new(
-            cuboid.corner.x as usize,
-            cuboid.corner.y as usize,
-            cuboid.corner.z as usize,
+            bbox.corner.x as usize,
+            bbox.corner.y as usize,
+            bbox.corner.z as usize,
         );
-        for x in origin.x..origin.x + cuboid.extent.x as usize {
-            for y in origin.y..origin.y + cuboid.extent.y as usize {
-                for z in origin.z..origin.z + cuboid.extent.z as usize {
-                    self.cubes[x][y][z] = None;
+        for x in origin.x..origin.x + bbox.extent.x as usize {
+            for y in origin.y..origin.y + bbox.extent.y as usize {
+                for z in origin.z..origin.z + bbox.extent.z as usize {
+                    self.boxes[x][y][z] = None;
                 }
             }
         }

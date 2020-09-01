@@ -133,13 +133,13 @@ pub fn unproject(
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Cuboid {
+pub struct BoundingBox {
     pub corner: Vector3<f32>,
     pub extent: Vector3<f32>,
     pub color: [f32; 4],
 }
 
-impl Cuboid {
+impl BoundingBox {
     pub fn corner_points(&self) -> [Vector3<f32>; 8] {
         [
             self.corner,
@@ -173,20 +173,20 @@ impl Cuboid {
     }
 
     fn from_corner_points(point1: Vector3<f32>, point2: Vector3<f32>, color: [f32; 4]) -> Self {
-        Cuboid {
+        BoundingBox {
             corner: point1,
             extent: point2 - point1,
             color,
         }
     }
 
-    pub fn containing_cube(&self, other: &Self) -> Self {
+    pub fn containing_box(&self, other: &Self) -> Self {
         let (point1, point2) = self.outermost_points(other);
         Self::from_corner_points(point1, point2, self.color)
     }
 
     pub fn new(corner: Vector3<f32>, extent: Vector3<f32>, color: [f32; 4]) -> Self {
-        Cuboid {
+        BoundingBox {
             corner,
             extent,
             color,

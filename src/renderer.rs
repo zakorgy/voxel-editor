@@ -155,7 +155,7 @@ fn create_texture_view(
         .create_default_view()
 }
 
-impl Cuboid {
+impl BoundingBox {
     fn vertices(&self) -> Vec<Vertex> {
         let mut vertex_data = Vec::new();
         let corner_points = self.corner_points();
@@ -395,11 +395,11 @@ impl VoxelManager {
         let mut index_data = Vec::new();
         let mut step;
         let mut idx;
-        let mut cube;
+        let mut bbox;
         for x in 0..self.extent {
             for y in 0..self.extent {
                 for z in 0..self.extent {
-                    if let Some(desc) = self.cubes[x][y][z] {
+                    if let Some(desc) = self.boxes[x][y][z] {
                         idx = vertex_data.len() as u32;
                         for i in 0..6 {
                             step = 4 * i;
@@ -412,12 +412,12 @@ impl VoxelManager {
                                 idx + step,
                             ]);
                         }
-                        cube = Cuboid::new(
+                        bbox = BoundingBox::new(
                             cgmath::Vector3::new(x as f32, y as f32, z as f32),
                             cgmath::Vector3::new(1.0, 1.0, 1.0),
                             desc.color,
                         );
-                        vertex_data.append(&mut cube.voxel_vertices());
+                        vertex_data.append(&mut bbox.voxel_vertices());
                     }
                 }
             }
@@ -426,12 +426,12 @@ impl VoxelManager {
     }
 }
 
-fn generate_cursor_vertices(cuboid: &Cuboid) -> (Vec<Vertex>, Vec<u16>) {
+fn generate_cursor_vertices(bbox: &BoundingBox) -> (Vec<Vertex>, Vec<u16>) {
     let index_data: Vec<u16> = vec![
         0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 8, 9, 10, 10, 11, 8, 12, 13, 14, 14, 15, 12, 16, 17,
         18, 18, 19, 16, 20, 21, 22, 22, 23, 20,
     ];
-    (cuboid.vertices(), index_data)
+    (bbox.vertices(), index_data)
 }
 
 struct Pipeline {
@@ -469,8 +469,8 @@ pub struct Renderer {
     cursor_pipeline: Pipeline,
     voxel_pipeline: Pipeline,
     ui_pipeline: wgpu::RenderPipeline,
-    cursor_cube: Cuboid,
-    draw_cube: Option<Cuboid>,
+    cursor_cube: BoundingBox,
+    draw_cube: Option<BoundingBox>,
     pub mesh_count: u16,
     voxel_manager: VoxelManager,
     light: Light,
@@ -612,7 +612,7 @@ impl Renderer {
         });
 
         //****************************** Setting up cursor pipeline ******************************
-        let cursor_cube = Cuboid::new(
+        let cursor_cube = BoundingBox::new(
             cgmath::Vector3::new(0.0, 0.0, 0.0),
             XY_PLANE.left + XY_PLANE.down + XY_PLANE.normal,
             HALF_ALPHA_RED.into(),
@@ -951,7 +951,7 @@ impl Renderer {
 
     pub fn update_cursor_pos(&mut self, pos: cgmath::Vector3<f32>, plane: Option<&Plane>) {
         if let Some(plane) = plane {
-            self.cursor_cube = Cuboid::new(
+            self.cursor_cube = BoundingBox::new(
                 Self::get_grid_pos(pos),
                 plane.left + plane.down + plane.normal,
                 HALF_ALPHA_RED.into(),
@@ -971,12 +971,12 @@ impl Renderer {
 
     pub fn update_draw_rectangle(&mut self, pos: cgmath::Vector3<f32>, plane: Option<&Plane>) {
         if let Some(plane) = plane {
-            let end_cube = Cuboid::new(
+            let end_cube = BoundingBox::new(
                 Self::get_grid_pos(pos),
                 plane.left + plane.down + plane.normal,
                 HALF_ALPHA_RED.into(),
             );
-            let draw_cube = self.cursor_cube.containing_cube(&end_cube);
+            let draw_cube = self.cursor_cube.containing_box(&end_cube);
             let vertex_data = draw_cube.vertices();
             Self::write_buffer(
                 &self.device,
@@ -995,7 +995,7 @@ impl Renderer {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
             cube.color = color;
-            self.voxel_manager.add_cube(cube);
+            self.voxel_manager.add_box(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
             Self::write_buffer(
                 &self.device,
@@ -1016,7 +1016,7 @@ impl Renderer {
     pub fn erase_rectangle(&mut self) {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
-            self.voxel_manager.erase_cube(cube);
+            self.voxel_manager.erase_box(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
             if index_data.len() > 0 {
                 Self::write_buffer(
