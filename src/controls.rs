@@ -8,6 +8,8 @@ use iced_winit::{
     Program, Radio, Rectangle, Size, Text,
 };
 
+use std::cell::Cell;
+
 pub const COLOR_SIZE: f32 = 30.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,6 +145,7 @@ pub struct Controls {
     export_button: button::State,
     color_picker: ColorPicker,
     picked_color: PickedColor,
+    save_file: Cell<Option<String>>,
 }
 
 impl Controls {
@@ -152,6 +155,7 @@ impl Controls {
             export_button: button::State::default(),
             color_picker: ColorPicker::default(),
             picked_color: PickedColor::new(Color::BLACK),
+            save_file: Cell::new(None),
         }
     }
 
@@ -162,6 +166,10 @@ impl Controls {
     pub fn draw_color(&self) -> Color {
         self.picked_color.color
     }
+
+    pub fn save_path(&self) -> Option<String> {
+        self.save_file.take()
+    }
 }
 
 impl Program for Controls {
@@ -171,7 +179,16 @@ impl Program for Controls {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::EditChanged(op) => self.edit_op = op,
-            Message::ExportPressed => println!("Export pressed!"),
+            Message::ExportPressed => {
+                let result = nfd::open_save_dialog(Some("obj"), None).unwrap_or_else(|e| {
+                    panic!(e);
+                });
+
+                match result {
+                    nfd::Response::Okay(file_path) => self.save_file.set(Some(file_path)),
+                    _ => {}
+                }
+            }
             Message::ColorPicked(color) => self.picked_color = PickedColor::new(color),
         };
 

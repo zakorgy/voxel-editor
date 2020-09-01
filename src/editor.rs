@@ -6,6 +6,10 @@ use cgmath::Vector3;
 use futures::executor::block_on;
 use iced_wgpu::wgpu;
 use std::time;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::prelude::*;
+
 use winit::{
     event::{self, WindowEvent},
     event_loop::ControlFlow,
@@ -154,6 +158,32 @@ impl Editor {
             .set_cursor_icon(iced_winit::conversion::mouse_interaction(mouse_interaction));
     }
 
+    fn save_vertices(&self, file_path: String) -> std::io::Result<()> {
+        let (vertex_data, indices) = self.renderer.get_model_data();
+        let mut buffer = BufWriter::new(File::create(&file_path)?);
+
+        buffer.write_all(b"# List of geometric vertices, with (x, y, z [,w]) coordinates, w is optional and defaults to 1.0.\n")?;
+
+        for vd in vertex_data.iter() {
+            buffer.write_all(format!("v {:.3} {:.3} {:.3} {:.3}\n", vd.pos[0] as f32, vd.pos[1] as f32, vd.pos[2] as f32, vd.pos[3] as f32).as_ref())?;
+        }
+
+        buffer.write_all(b"# List of vertex normals in (x,y,z) form; normals might not be unit vectors.\n")?;
+
+        for vd in vertex_data.iter() {
+            buffer.write_all(format!("vn {:.3} {:.3} {:.3}\n", vd.normal[0], vd.normal[1], vd.normal[2]).as_ref())?;
+        }
+
+        buffer.write_all(b"# Polygonal face element\n")?;
+
+        for id in indices.chunks(3) {
+            buffer.write_all(format!("f {}//{} {}//{} {}//{}\n", id[0] + 1, id[0] + 1, id[1] + 1, id[1] + 1, id[2] + 1, id[2] + 1).as_ref())?;
+        }
+
+        buffer.flush()?;
+        Ok(())
+    }
+
     pub fn run_editor(event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window) {
         log::info!("Initializing the surface...");
 
@@ -210,6 +240,12 @@ impl Editor {
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
+            if let Some(file_path) = editor.ui.controls().save_path() {
+                match editor.save_vertices(file_path) {
+                    Err(e) => println!("Failed to save file reason: {:?}", e),
+                    Ok(_) => println!("File saved"),
+                };
+            }
             let _ = &adapter; // force ownership by the closure
             *control_flow = if cfg!(feature = "metal-auto-capture") {
                 ControlFlow::Exit

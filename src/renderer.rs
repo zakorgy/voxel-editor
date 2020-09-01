@@ -28,9 +28,9 @@ pub struct Vertex {
 
 #[derive(Clone, Copy)]
 pub struct VoxelVertex {
-    _pos: [f32; 4],
+    pub pos: [f32; 4],
     _col: [f32; 4],
-    _normal: [f32; 3],
+    pub normal: [f32; 3],
 }
 
 unsafe impl Pod for Vertex {}
@@ -50,11 +50,11 @@ fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     }
 }
 
-fn voxel_vertex(pos: [f32; 3], col: [f32; 4], norm: [f32; 3]) -> VoxelVertex {
+fn voxel_vertex(pos: [f32; 3], col: [f32; 4], normal: [f32; 3]) -> VoxelVertex {
     VoxelVertex {
-        _pos: [pos[0], pos[1], pos[2], 1.0],
+        pos: [pos[0], pos[1], pos[2], 1.0],
         _col: col,
-        _normal: norm,
+        normal,
     }
 }
 
@@ -923,6 +923,10 @@ impl Renderer {
             command_buffers: Vec::new(),
             ui_pipeline,
         }
+    }
+
+    pub fn get_model_data(&self) -> (Vec<VoxelVertex>, Vec<u32>) {
+        self.voxel_manager.vertices()
     }
 
     pub fn update_view(&mut self, event: winit::event::WindowEvent) {
