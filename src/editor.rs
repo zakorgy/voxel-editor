@@ -3,8 +3,8 @@ use crate::geometry::*;
 use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
 use crate::ui::Ui;
 use cgmath::Vector3;
-use iced_wgpu::wgpu;
 use futures::executor::block_on;
+use iced_wgpu::wgpu;
 use std::time;
 use winit::{
     event::{self, WindowEvent},
@@ -139,7 +139,7 @@ impl Editor {
                     EditOp::Draw => {
                         let c = self.ui.controls().draw_color();
                         self.renderer.draw_rectangle([c.r, c.g, c.b, c.a])
-                    },
+                    }
                     EditOp::Erase => self.renderer.erase_rectangle(),
                 };
                 self.state = EditorState::ChangeView;
@@ -150,11 +150,8 @@ impl Editor {
     fn redraw(&mut self) {
         let mouse_interaction = self.renderer.render(&mut self.ui);
         // Update the mouse cursor
-        self.window.set_cursor_icon(
-            iced_winit::conversion::mouse_interaction(
-                mouse_interaction,
-            ),
-        );
+        self.window
+            .set_cursor_icon(iced_winit::conversion::mouse_interaction(mouse_interaction));
     }
 
     pub fn run_editor(event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window) {
@@ -175,14 +172,12 @@ impl Editor {
         ))
         .unwrap();
 
-        let (mut device, queue) = block_on(adapter.request_device(
-            &wgpu::DeviceDescriptor {
-                extensions: wgpu::Extensions {
-                    anisotropic_filtering: false,
-                },
-                limits: wgpu::Limits::default(),
+        let (mut device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+            extensions: wgpu::Extensions {
+                anisotropic_filtering: false,
             },
-        ));
+            limits: wgpu::Limits::default(),
+        }));
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -236,8 +231,7 @@ impl Editor {
                     log::info!("Resizing to {:?}", size);
                     editor.resize(size);
                 }
-                event::Event::WindowEvent { event, .. } =>
-                {
+                event::Event::WindowEvent { event, .. } => {
                     match event {
                         WindowEvent::KeyboardInput {
                             input:
@@ -250,12 +244,12 @@ impl Editor {
                         }
                         | WindowEvent::CloseRequested => {
                             *control_flow = ControlFlow::Exit;
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     }
                     editor.ui.update(&event, editor.window.scale_factor());
                     editor.update(event);
-                },
+                }
                 event::Event::RedrawRequested(_) => {
                     editor.redraw();
                 }

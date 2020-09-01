@@ -4,8 +4,8 @@ mod editor;
 mod geometry;
 mod light;
 mod renderer;
-mod voxel_manager;
 mod ui;
+mod voxel_manager;
 
 use editor::Editor;
 use winit::event_loop::EventLoop;

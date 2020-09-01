@@ -1,10 +1,10 @@
 use crate::camera::CameraWrapper;
 use crate::geometry::*;
 use crate::light::*;
-use crate::voxel_manager::VoxelManager;
 use crate::ui::{build_ui_pipeline, Ui};
+use crate::voxel_manager::VoxelManager;
 use cgmath;
-use iced_wgpu::{wgpu};
+use iced_wgpu::wgpu;
 use iced_winit::mouse::Interaction;
 
 pub const DEFAULT_MESH_COUNT: u16 = 16;
@@ -537,7 +537,7 @@ impl Renderer {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer {
                     buffer: &uniform_buf,
-                    range: 0 .. uniform_buf_size,
+                    range: 0..uniform_buf_size,
                 },
             }],
             label: None,
@@ -547,8 +547,10 @@ impl Renderer {
         let fs_bytes = include_bytes!("shader.frag.spv");
 
         // Create the mesh rendering pipeline
-        let vs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap());
-        let fs_module = device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
+        let vs_module = device
+            .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap());
+        let fs_module = device
+            .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
 
         let mesh_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
@@ -630,12 +632,10 @@ impl Renderer {
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: None,
-            bindings: &[wgpu::BindGroupLayoutEntry{
+            bindings: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStage::VERTEX,
-                ty: wgpu::BindingType::UniformBuffer {
-                    dynamic: false
-                },
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
             }],
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -649,8 +649,8 @@ impl Renderer {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer {
                     buffer: &uniform_buf,
-                    range: 0 .. uniform_buf_size,
-                }
+                    range: 0..uniform_buf_size,
+                },
             }],
             label: None,
         });
@@ -747,16 +747,12 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                    },
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1, // lights
                     visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                    },
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
                 },
             ],
         });
@@ -772,14 +768,14 @@ impl Renderer {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer {
                         buffer: &uniform_buf,
-                        range: 0 .. uniform_buf_size,
+                        range: 0..uniform_buf_size,
                     },
                 },
                 wgpu::Binding {
                     binding: 1,
                     resource: wgpu::BindingResource::Buffer {
                         buffer: &light_uniform_buf,
-                        range: 0 .. mem::size_of::<LightRaw>() as u64,
+                        range: 0..mem::size_of::<LightRaw>() as u64,
                     },
                 },
             ],
@@ -790,10 +786,10 @@ impl Renderer {
         let fs_bytes = include_bytes!("voxel_shader.frag.spv");
 
         // Create the voxel rendering pipeline
-        let vs_module_voxel =
-            device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap());
-        let fs_module_voxel =
-        device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
+        let vs_module_voxel = device
+            .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs_bytes[..])).unwrap());
+        let fs_module_voxel = device
+            .create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&fs_bytes[..])).unwrap());
 
         let voxel_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &pipeline_layout,
@@ -936,7 +932,12 @@ impl Renderer {
                 .camera
                 .mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
             let mx_ref = mx.as_ref();
-            Self::write_buffer(&self.device, bytemuck::cast_slice(mx_ref), &self.mvp_buf, &mut self.command_buffers);
+            Self::write_buffer(
+                &self.device,
+                bytemuck::cast_slice(mx_ref),
+                &self.mvp_buf,
+                &mut self.command_buffers,
+            );
         }
     }
 
@@ -952,7 +953,12 @@ impl Renderer {
                 HALF_ALPHA_RED.into(),
             );
             let vertex_data = self.cursor_cube.vertices();
-            Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.cursor_pipeline.vertex_buf, &mut self.command_buffers);
+            Self::write_buffer(
+                &self.device,
+                bytemuck::cast_slice(&vertex_data),
+                &self.cursor_pipeline.vertex_buf,
+                &mut self.command_buffers,
+            );
             self.render_cursor = true;
         } else {
             self.render_cursor = false;
@@ -968,7 +974,12 @@ impl Renderer {
             );
             let draw_cube = self.cursor_cube.containing_cube(&end_cube);
             let vertex_data = draw_cube.vertices();
-            Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.cursor_pipeline.vertex_buf, &mut self.command_buffers);
+            Self::write_buffer(
+                &self.device,
+                bytemuck::cast_slice(&vertex_data),
+                &self.cursor_pipeline.vertex_buf,
+                &mut self.command_buffers,
+            );
             self.draw_cube = Some(draw_cube);
             self.render_cursor = true;
         } else {
@@ -982,8 +993,18 @@ impl Renderer {
             cube.color = color;
             self.voxel_manager.add_cube(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
-            Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.voxel_pipeline.vertex_buf, &mut self.command_buffers);
-            Self::write_buffer(&self.device, bytemuck::cast_slice(&index_data), &self.voxel_pipeline.index_buf, &mut self.command_buffers);
+            Self::write_buffer(
+                &self.device,
+                bytemuck::cast_slice(&vertex_data),
+                &self.voxel_pipeline.vertex_buf,
+                &mut self.command_buffers,
+            );
+            Self::write_buffer(
+                &self.device,
+                bytemuck::cast_slice(&index_data),
+                &self.voxel_pipeline.index_buf,
+                &mut self.command_buffers,
+            );
             self.voxel_pipeline.index_count = index_data.len();
         }
     }
@@ -994,8 +1015,18 @@ impl Renderer {
             self.voxel_manager.erase_cube(cube);
             let (vertex_data, index_data) = self.voxel_manager.vertices();
             if index_data.len() > 0 {
-                Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.voxel_pipeline.vertex_buf, &mut self.command_buffers);
-                Self::write_buffer(&self.device, bytemuck::cast_slice(&index_data), &self.voxel_pipeline.index_buf, &mut self.command_buffers);
+                Self::write_buffer(
+                    &self.device,
+                    bytemuck::cast_slice(&vertex_data),
+                    &self.voxel_pipeline.vertex_buf,
+                    &mut self.command_buffers,
+                );
+                Self::write_buffer(
+                    &self.device,
+                    bytemuck::cast_slice(&index_data),
+                    &self.voxel_pipeline.index_buf,
+                    &mut self.command_buffers,
+                );
             }
             self.voxel_pipeline.index_count = index_data.len();
         }
@@ -1021,8 +1052,18 @@ impl Renderer {
         index_data.push((vertex_data.len() - 1) as u16);
         vertex_data.push(vertex(far_pos.into(), BLUE));
         index_data.push((vertex_data.len() - 1) as u16);
-        Self::write_buffer(&self.device, bytemuck::cast_slice(&vertex_data), &self.mesh_pipeline.vertex_buf, &mut self.command_buffers);
-        Self::write_buffer(&self.device, bytemuck::cast_slice(&index_data), &self.mesh_pipeline.index_buf, &mut self.command_buffers);
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(&vertex_data),
+            &self.mesh_pipeline.vertex_buf,
+            &mut self.command_buffers,
+        );
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(&index_data),
+            &self.mesh_pipeline.index_buf,
+            &mut self.command_buffers,
+        );
     }
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
@@ -1033,7 +1074,12 @@ impl Renderer {
             .camera
             .mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
         let mx_ref = mx.as_ref();
-        Self::write_buffer(&self.device, bytemuck::cast_slice(mx_ref), &self.mvp_buf, &mut self.command_buffers);
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(mx_ref),
+            &self.mvp_buf,
+            &mut self.command_buffers,
+        );
 
         self.multisampled_framebuffer = create_texture_view(
             &self.device,
@@ -1057,7 +1103,8 @@ impl Renderer {
         buffer: &wgpu::Buffer,
         command_buffers: &mut Vec<wgpu::CommandBuffer>,
     ) {
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         let temp_buf = device.create_buffer_with_data(data, wgpu::BufferUsage::COPY_SRC);
 
         encoder.copy_buffer_to_buffer(&temp_buf, 0, &buffer, 0, data.len() as u64);
@@ -1078,7 +1125,12 @@ impl Renderer {
 
         if self.lights_are_dirty {
             self.lights_are_dirty = false;
-            Self::write_buffer(&self.device, bytemuck::bytes_of(&self.light.to_raw()), &self.light_uniform_buf, &mut self.command_buffers);
+            Self::write_buffer(
+                &self.device,
+                bytemuck::bytes_of(&self.light.to_raw()),
+                &self.light_uniform_buf,
+                &mut self.command_buffers,
+            );
         }
 
         let mut encoder = self
@@ -1143,11 +1195,7 @@ impl Renderer {
             rpass.set_pipeline(&self.ui_pipeline);
         }
 
-        let mouse_interaction = ui.draw(
-            &mut self.device,
-            &mut encoder,
-            &frame.view,
-        );
+        let mouse_interaction = ui.draw(&mut self.device, &mut encoder, &frame.view);
 
         let mut command_buffers = self.command_buffers.drain(..).collect::<Vec<_>>();
         command_buffers.push(encoder.finish());

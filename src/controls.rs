@@ -1,5 +1,12 @@
-use iced_wgpu::{canvas, Renderer, container::{Style, StyleSheet}};
-use iced_winit::{button, Button, Color, Column, Command, Container, Element, Length, mouse, Point, Program, Radio, Rectangle, Size, Text, Background};
+use iced_wgpu::{
+    canvas,
+    container::{Style, StyleSheet},
+    Renderer,
+};
+use iced_winit::{
+    button, mouse, Background, Button, Color, Column, Command, Container, Element, Length, Point,
+    Program, Radio, Rectangle, Size, Text,
+};
 
 pub const COLOR_SIZE: f32 = 30.0;
 
@@ -35,12 +42,42 @@ impl ColorPicker {
     pub const COLORS: [Color; 8] = [
         Color::WHITE,
         Color::BLACK,
-        Color {r: 1.0, g: 0.0, b: 0.0, a: 1.0},
-        Color {r: 0.0, g: 1.0, b: 0.0, a: 1.0},
-        Color {r: 0.0, g: 0.0, b: 1.0, a: 1.0},
-        Color {r: 1.0, g: 0.0, b: 1.0, a: 1.0},
-        Color {r: 1.0, g: 1.0, b: 0.0, a: 1.0},
-        Color {r: 0.0, g: 1.0, b: 1.0, a: 1.0},
+        Color {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0,
+        },
+        Color {
+            r: 0.0,
+            g: 1.0,
+            b: 0.0,
+            a: 1.0,
+        },
+        Color {
+            r: 0.0,
+            g: 0.0,
+            b: 1.0,
+            a: 1.0,
+        },
+        Color {
+            r: 1.0,
+            g: 0.0,
+            b: 1.0,
+            a: 1.0,
+        },
+        Color {
+            r: 1.0,
+            g: 1.0,
+            b: 0.0,
+            a: 1.0,
+        },
+        Color {
+            r: 0.0,
+            g: 1.0,
+            b: 1.0,
+            a: 1.0,
+        },
     ];
     pub const COLORS_PER_LINE: usize = 4;
 
@@ -61,8 +98,12 @@ impl ColorPicker {
 
     pub fn view(&mut self) -> Element<Message, Renderer> {
         canvas::Canvas::new(self)
-            .width(Length::Units(Self::COLORS_PER_LINE as u16 * COLOR_SIZE as u16))
-            .height(Length::Units(Self::COLORS.len() as u16 / Self::COLORS_PER_LINE as u16 * COLOR_SIZE as u16))
+            .width(Length::Units(
+                Self::COLORS_PER_LINE as u16 * COLOR_SIZE as u16,
+            ))
+            .height(Length::Units(
+                Self::COLORS.len() as u16 / Self::COLORS_PER_LINE as u16 * COLOR_SIZE as u16,
+            ))
             .into()
     }
 }
@@ -86,7 +127,7 @@ impl PickedColor {
             height: COLOR_SIZE,
         };
 
-        frame.fill_rectangle(Point {x: 0.0, y: 0.0}, box_size, self.color);
+        frame.fill_rectangle(Point { x: 0.0, y: 0.0 }, box_size, self.color);
     }
 
     pub fn view(&mut self) -> Element<Message, Renderer> {
@@ -138,37 +179,36 @@ impl Program for Controls {
     }
 
     fn view(&mut self) -> Element<Message, Renderer> {
-        let edit_bar = EditOp::ALL.iter().fold(
-            Column::new().width(Length::Units(150)).spacing(10).push(Text::new("Edit state:")),
-            |column, state| {
-                column.push(
-                    Radio::new(
+        let edit_bar = EditOp::ALL
+            .iter()
+            .fold(
+                Column::new()
+                    .width(Length::Units(150))
+                    .spacing(10)
+                    .push(Text::new("Edit state:")),
+                |column, state| {
+                    column.push(Radio::new(
                         *state,
                         &format!("{:?}", state),
                         Some(self.edit_op),
                         Message::EditChanged,
-                    )
-                )
-            },
-        )
-        .push(Text::new("Pick a color"))
-        .push(
-            self.color_picker.view()
-        )
-        .push(Text::new("Draw color"))
-        .push(
-            self.picked_color.view()
-        )
-        .push(
-            Button::new(&mut self.export_button, Text::new("Export as .obj"))
-                .on_press(Message::ExportPressed)
-        );
+                    ))
+                },
+            )
+            .push(Text::new("Pick a color"))
+            .push(self.color_picker.view())
+            .push(Text::new("Draw color"))
+            .push(self.picked_color.view())
+            .push(
+                Button::new(&mut self.export_button, Text::new("Export as .obj"))
+                    .on_press(Message::ExportPressed),
+            );
 
         Container::new(edit_bar)
             .width(Length::Units(150))
             .height(Length::Units(400))
             .padding(10)
-            .style(UiStyle{})
+            .style(UiStyle {})
             .into()
     }
 }
@@ -189,7 +229,7 @@ impl canvas::Program<Message> for ColorPicker {
         cursor: canvas::Cursor,
     ) -> Option<Message> {
         match event {
-            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) =>  {
+            canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 if let Some(pos) = cursor.position() {
                     let (x_dist, y_dist) = (pos.x - bounds.x, pos.y - bounds.y);
                     if x_dist.is_sign_positive() && y_dist.is_sign_positive() {
@@ -202,7 +242,7 @@ impl canvas::Program<Message> for ColorPicker {
                     }
                 }
             }
-            _other => {},
+            _other => {}
         }
         None
     }
@@ -229,4 +269,3 @@ impl StyleSheet for UiStyle {
         }
     }
 }
-

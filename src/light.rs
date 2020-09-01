@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
-use iced_wgpu::wgpu;
 use cgmath;
+use iced_wgpu::wgpu;
 
 pub struct Light {
     pub pos: cgmath::Point3<f32>,
