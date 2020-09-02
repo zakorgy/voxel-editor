@@ -472,7 +472,7 @@ pub struct Renderer {
     cursor_cube: BoundingBox,
     draw_cube: Option<BoundingBox>,
     pub mesh_count: u16,
-    voxel_manager: VoxelManager,
+    pub voxel_manager: VoxelManager,
     light: Light,
     lights_are_dirty: bool,
 }
@@ -949,7 +949,7 @@ impl Renderer {
         cgmath::Vector3::new(world_pos.x.floor(), world_pos.y.ceil(), world_pos.z.ceil())
     }
 
-    pub fn update_cursor_pos(&mut self, pos: cgmath::Vector3<f32>, plane: Option<&Plane>) {
+    pub fn update_cursor_pos_on_plane(&mut self, pos: cgmath::Vector3<f32>, plane: Option<&Plane>) {
         if let Some(plane) = plane {
             self.cursor_cube = BoundingBox::new(
                 Self::get_grid_pos(pos),
@@ -969,7 +969,20 @@ impl Renderer {
         }
     }
 
-    pub fn update_draw_rectangle(&mut self, pos: cgmath::Vector3<f32>, plane: Option<&Plane>) {
+    pub fn update_cursor_pos(&mut self, bbox: BoundingBox) {
+        self.cursor_cube = bbox;
+        self.cursor_cube.color = HALF_ALPHA_RED.into();
+        let vertex_data = self.cursor_cube.vertices();
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(&vertex_data),
+            &self.cursor_pipeline.vertex_buf,
+            &mut self.command_buffers,
+        );
+        self.render_cursor = true;
+    }
+
+    pub fn update_draw_rectangle_on_plane(&mut self, pos: cgmath::Vector3<f32>, plane: Option<&Plane>) {
         if let Some(plane) = plane {
             let end_cube = BoundingBox::new(
                 Self::get_grid_pos(pos),
@@ -989,6 +1002,20 @@ impl Renderer {
         } else {
             self.render_cursor = false;
         }
+    }
+
+    pub fn update_draw_rectangle(&mut self, mut bbox: BoundingBox) {
+        bbox.color = HALF_ALPHA_RED.into();
+        let draw_cube = self.cursor_cube.containing_box(&bbox);
+        let vertex_data = draw_cube.vertices();
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(&vertex_data),
+            &self.cursor_pipeline.vertex_buf,
+            &mut self.command_buffers,
+        );
+        self.draw_cube = Some(draw_cube);
+        self.render_cursor = true;
     }
 
     pub fn draw_rectangle(&mut self, color: [f32; 4]) {
@@ -1011,6 +1038,26 @@ impl Renderer {
             );
             self.voxel_pipeline.index_count = index_data.len();
         }
+    }
+
+    #[cfg(feature = "debug_ray")]
+    pub fn debug_update(&mut self) {
+        let (vertex_data, index_data) = self.voxel_manager.vertices();
+        if vertex_data.len() == 0 {
+            return
+        }
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(&vertex_data),
+            &self.voxel_pipeline.vertex_buf,
+            &mut self.command_buffers,
+        );
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(&index_data),
+            &self.voxel_pipeline.index_buf,
+            &mut self.command_buffers,
+        );
     }
 
     pub fn erase_rectangle(&mut self) {
@@ -1117,6 +1164,9 @@ impl Renderer {
     }
 
     pub fn render(&mut self, ui: &mut Ui) -> Interaction {
+        #[cfg(feature = "debug_ray")]
+        self.debug_update();
+
         let frame = match self.swap_chain.get_next_texture() {
             Ok(frame) => frame,
             Err(_) => {

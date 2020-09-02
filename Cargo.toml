@@ -33,6 +33,7 @@ winit = "0.22"
 nfd = "0.0.4"
 
 [features]
+#default = ["debug_ray"]
 debug_ray = []
 
 [replace]
