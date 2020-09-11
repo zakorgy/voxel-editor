@@ -99,7 +99,7 @@ impl CameraWrapper {
                 ..
             } => {
                 if self.camera.keys.contains(Keys::ZOOM) {
-                    self.camera.control_camera(-*dx, -*dy);
+                    self.camera.control_camera(-*dx / 10.0, -*dy / 10.0);
                 } else {
                     self.camera.control_camera(*dx * 10.0, *dy * 10.0);
                 }

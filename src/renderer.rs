@@ -7,7 +7,7 @@ use cgmath;
 use iced_wgpu::wgpu;
 use iced_winit::mouse::Interaction;
 
-pub const DEFAULT_MESH_COUNT: u16 = 16;
+pub const DEFAULT_MESH_COUNT: u16 = 32;
 const SAMPLE_COUNT: u32 = 4;
 
 const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
