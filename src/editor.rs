@@ -80,13 +80,13 @@ impl Editor {
         self.renderer
             .cursor_helper(Some(self.cursor_ray.origin), self.cursor_ray.end);
 
-        let (bbox, _) = self.renderer.voxel_manager.get_intersection_box(&self.cursor_ray);
+        let (erase_box, draw_box) = self.renderer.voxel_manager.get_intersection_box(&self.cursor_ray);
         #[cfg(feature = "debug_ray")]
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
         let mut intersection_point = Vector3::new(0.0, 0.0, 0.0);
         let mesh_count = self.renderer.mesh_count as f32;
-        if bbox.is_none() {
+        if erase_box.is_none() {
             for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
                 if let Some(point) = self.cursor_ray.plane_intersection(plane) {
                     #[cfg(feature = "debug_ray")]
@@ -142,16 +142,22 @@ impl Editor {
         );
         match self.state {
             EditorState::ChangeView => {
-                if let Some(bbox) = bbox {
-                    self.renderer.update_cursor_pos(bbox);
+                if let Some(bbox) = erase_box {
+                    match self.ui.controls().edit_op() {
+                        EditOp::Draw => self.renderer.update_cursor_pos(draw_box.unwrap()),
+                        EditOp::Erase => self.renderer.update_cursor_pos(bbox),
+                    };
                 } else {
                     self.renderer
                         .update_cursor_pos_on_plane(intersection_point, closest_plane);
                 }
             }
             EditorState::Edit => {
-                if let Some(bbox) = bbox {
-                    self.renderer.update_draw_rectangle(bbox);
+                if let Some(bbox) = erase_box {
+                    match self.ui.controls().edit_op() {
+                        EditOp::Draw => self.renderer.update_draw_rectangle(draw_box.unwrap()),
+                        EditOp::Erase => self.renderer.update_draw_rectangle(bbox),
+                    };
                 } else {
                     self.renderer
                         .update_draw_rectangle_on_plane(intersection_point, closest_plane);

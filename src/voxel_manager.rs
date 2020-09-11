@@ -55,12 +55,50 @@ impl VoxelManager {
         }
     }
 
-    pub fn get_intersection_box(&mut self, ray: &Ray) -> (Option<BoundingBox>, Vector3<f32>) {
-        let mut closest_intersect_box = None;
-        let mut closest_fraction = 100000.0;
-        let mut closest_intersection = Vector3::new(0.0, 0.0, 0.0);
-        let mut intersection = Vector3::new(0.0, 0.0, 0.0);
-        let mut fraction = 1.0;
+    fn get_neighbour_boxes(&mut self, pos_x: usize, pos_y: usize, pos_z: usize) -> Vec<BoundingBox> {
+        let mut origins = Vec::new();
+        let min_x = pos_x.max(1) - 1;
+        let min_y = pos_y.max(1) - 1;
+        let min_z = pos_z.max(1) - 1;
+
+        let max_x = (pos_x + 1).min(self.extent - 1);
+        let max_y = (pos_y + 1).min(self.extent - 1);
+        let max_z = (pos_z + 1).min(self.extent - 1);
+        for x in min_x ..= max_x {
+            if self.boxes[x][pos_y][pos_z].is_none() {
+                origins.push(BoundingBox::new(
+                            cgmath::Vector3::new(x as f32, pos_y as f32, pos_z as f32),
+                            cgmath::Vector3::new(1.0, 1.0, 1.0),
+                            [1.0; 4],
+                        ));
+            }
+        }
+        for y in min_y ..= max_y {
+            if self.boxes[pos_x][y][pos_z].is_none() {
+                origins.push(BoundingBox::new(
+                            cgmath::Vector3::new(pos_x as f32, y as f32, pos_z as f32),
+                            cgmath::Vector3::new(1.0, 1.0, 1.0),
+                            [1.0; 4],
+                        ));
+            }
+        }
+        for z in min_z ..= max_z {
+            if self.boxes[pos_x][pos_y][z].is_none() {
+                origins.push(BoundingBox::new(
+                            cgmath::Vector3::new(pos_x as f32, pos_y as f32, z as f32),
+                            cgmath::Vector3::new(1.0, 1.0, 1.0),
+                            [1.0; 4],
+                        ));
+            }
+        }
+        origins
+    }
+
+    pub fn get_intersection_box(&mut self, ray: &Ray) -> (Option<BoundingBox>, Option<BoundingBox>) {
+        let mut erase_box = None;
+        let mut draw_box = None;
+        let mut closest_distance = 100000.0;
+        let mut distance = 1.0;
         let mut bbox;
         for x in 0..self.extent {
             for y in 0..self.extent {
@@ -72,11 +110,10 @@ impl VoxelManager {
                             desc.color,
                         );
 
-                        if ray_box_intersection(&bbox, ray, &mut fraction, &mut intersection) {
-                            if fraction.abs() < closest_fraction {
-                                closest_fraction = fraction.abs();
-                                closest_intersect_box = Some(bbox);
-                                closest_intersection = intersection;
+                        if ray_box_intersection(&bbox, ray, &mut distance) {
+                            if distance.abs() < closest_distance {
+                                closest_distance = distance.abs();
+                                erase_box = Some(bbox);
                                 if cfg!(feature = "debug_ray") {
                                     self.boxes[x][y][z] = Some(CubeDescriptor::new([0.0, 0.0, 1.0, 1.0]));
                                 }
@@ -84,11 +121,26 @@ impl VoxelManager {
                         } else if cfg!(feature = "debug_ray") {
                             self.boxes[x][y][z] = Some(CubeDescriptor::new([0.0, 1.0, 0.0, 0.1]));
                         }
-
                     }
                 }
             }
         }
-        return (closest_intersect_box, closest_intersection);
+        if let Some(bbox) = erase_box {
+            draw_box = erase_box;
+            let boxes = self.get_neighbour_boxes(
+                bbox.corner.x as usize,
+                bbox.corner.y as usize,
+                bbox.corner.z as usize,
+            );
+            for bbox in boxes {
+                if ray_box_intersection(&bbox, ray, &mut distance) {
+                    if distance.abs() < closest_distance {
+                        closest_distance = distance.abs();
+                        draw_box = Some(bbox);
+                    }
+                }
+            }
+        }
+        (erase_box, draw_box)
     }
 }

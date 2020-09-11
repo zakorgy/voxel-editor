@@ -226,7 +226,7 @@ impl BoundingBox {
     }
 }
 
-pub fn ray_box_intersection(bbox: &BoundingBox,  ray: &Ray, dist: &mut f32, _intersection: &mut Vector3<f32>) -> bool
+pub fn ray_box_intersection(bbox: &BoundingBox,  ray: &Ray, dist: &mut f32) -> bool
 {
     let mut tmin = f32::NEG_INFINITY;
     let mut tmax = f32::INFINITY;
