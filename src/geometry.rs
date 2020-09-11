@@ -86,23 +86,25 @@ pub const XZ_PLANE: Plane = Plane {
     name: "XZ",
 };
 
+#[derive(Debug)]
 pub struct Ray {
-    pub point: Vector3<f32>,
+    pub origin: Vector3<f32>,
+    pub end: Vector3<f32>,
     pub vector: Vector3<f32>,
 }
 
 impl Ray {
-    pub fn new(point: Vector3<f32>, vector: Vector3<f32>) -> Self {
-        Ray { point, vector }
+    pub fn new(origin: Vector3<f32>, end: Vector3<f32>) -> Self {
+        Ray { origin, vector: origin - end, end }
     }
 
     pub fn plane_intersection(&self, plane: &Plane) -> Option<Vector3<f32>> {
         let dist_square = self.vector.dot(plane.normal);
         if dist_square.abs() > EPSYLON {
-            let diff = self.point - plane.point;
+            let diff = self.origin - plane.point;
             let dist_square2 = diff.dot(plane.normal) / dist_square;
             if dist_square2 >= EPSYLON {
-                return Some(self.point - self.vector * dist_square2);
+                return Some(self.origin - self.vector * dist_square2);
             }
         }
         None
@@ -122,7 +124,7 @@ pub fn unproject(
     let in_vec = Vector4::new(
         (winx / window_size.width as f32) * 2.0 - 1.0,
         ((window_size.height as f32 - winy) / window_size.height as f32) * 2.0 - 1.0,
-        2.0 * winz - 1.0,
+        winz,
         1.0,
     );
 
@@ -133,13 +135,17 @@ pub fn unproject(
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct Cuboid {
+pub struct BoundingBox {
     pub corner: Vector3<f32>,
     pub extent: Vector3<f32>,
     pub color: [f32; 4],
 }
 
-impl Cuboid {
+impl BoundingBox {
+    fn vec_max(&self) -> Vector3<f32> {
+        self.corner + self.extent
+    }
+
     pub fn corner_points(&self) -> [Vector3<f32>; 8] {
         [
             self.corner,
@@ -172,21 +178,21 @@ impl Cuboid {
         outermost_points
     }
 
-    fn from_corner_points(point1: Vector3<f32>, point2: Vector3<f32>, color: [f32; 4]) -> Self {
-        Cuboid {
-            corner: point1,
-            extent: point2 - point1,
+    fn from_corner_points(origin: Vector3<f32>, end: Vector3<f32>, color: [f32; 4]) -> Self {
+        BoundingBox {
+            corner: origin,
+            extent: end - origin,
             color,
         }
     }
 
-    pub fn containing_cube(&self, other: &Self) -> Self {
-        let (point1, point2) = self.outermost_points(other);
-        Self::from_corner_points(point1, point2, self.color)
+    pub fn containing_box(&self, other: &Self) -> Self {
+        let (origin, end) = self.outermost_points(other);
+        Self::from_corner_points(origin, end, self.color)
     }
 
     pub fn new(corner: Vector3<f32>, extent: Vector3<f32>, color: [f32; 4]) -> Self {
-        Cuboid {
+        BoundingBox {
             corner,
             extent,
             color,
@@ -218,4 +224,21 @@ impl Cuboid {
         }
         *self = Self::from_corner_points(closest_to_origo, farthest_from_origo, self.color);
     }
+}
+
+pub fn ray_box_intersection(bbox: &BoundingBox,  ray: &Ray, dist: &mut f32) -> bool
+{
+    let mut tmin = f32::NEG_INFINITY;
+    let mut tmax = f32::INFINITY;
+
+    for i in 0..3 {
+        let t1 = (bbox.corner[i] - ray.origin[i]) / (ray.end[i] - ray.origin[i]);
+        let t2 = (bbox.vec_max()[i] - ray.origin[i]) / (ray.end[i] - ray.origin[i]);
+
+        tmin = tmin.max(t1.min(t2));
+        tmax = tmax.min(t1.max(t2));
+    }
+
+    *dist = BoundingBox::manhattan_distance(&ray.origin, &bbox.corner);
+    tmax >= tmin.max(0.0)
 }

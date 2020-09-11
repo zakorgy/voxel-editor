@@ -27,7 +27,7 @@ pub struct Editor {
     renderer: Renderer,
     ui: Ui,
     state: EditorState,
-    cursor_pos_world: Vector3<f32>,
+    cursor_ray: Ray,
 }
 
 impl Editor {
@@ -53,7 +53,16 @@ impl Editor {
             }
         };
         if let event::WindowEvent::CursorMoved { position, .. } = event {
-            self.cursor_pos_world = unproject(
+            let near_pos_world = unproject(
+                position.x as f32,
+                position.y as f32,
+                0.1 as f32,
+                self.renderer.camera.model_view_mat(),
+                self.renderer.camera.projection_mat(),
+                self.window.inner_size(),
+            );
+
+            let far_pos_world = unproject(
                 position.x as f32,
                 position.y as f32,
                 1.0 as f32,
@@ -61,67 +70,69 @@ impl Editor {
                 self.renderer.camera.projection_mat(),
                 self.window.inner_size(),
             );
+            self.cursor_ray = Ray::new(near_pos_world, far_pos_world);
         }
 
         if self.state == EditorState::ChangeView {
             self.renderer.update_view(event);
         }
-
-        let cam_pos: Vector3<f32> = self.renderer.camera.camera.camera(0.0).position.into();
         #[cfg(feature = "debug_ray")]
         self.renderer
-            .cursor_helper(Some(cam_pos), self.cursor_pos_world);
-        let cursor_ray = Ray::new(cam_pos, cam_pos - self.cursor_pos_world);
+            .cursor_helper(Some(self.cursor_ray.origin), self.cursor_ray.end);
 
+        let (erase_box, draw_box) = self.renderer.voxel_manager.get_intersection_box(&self.cursor_ray);
         #[cfg(feature = "debug_ray")]
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
         let mut intersection_point = Vector3::new(0.0, 0.0, 0.0);
         let mesh_count = self.renderer.mesh_count as f32;
-        for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
-            if let Some(point) = cursor_ray.plane_intersection(plane) {
-                #[cfg(feature = "debug_ray")]
-                log::debug!(
-                    "{:?} intersects with mouse world position at {:?}",
-                    plane.name,
-                    point
-                );
-                if point.x <= mesh_count
-                    && point.x >= 0.0
-                    && point.y <= mesh_count
-                    && point.y >= 0.0
-                    && point.z <= mesh_count
-                    && point.z >= 0.0
-                {
-                    intersection_point = point;
-
-                    // Workaround for really small floating point coordinates can cause stuttering in the cursor movement
-                    if intersection_point.x < EPSYLON {
-                        intersection_point.x = 0.0;
-                    }
-                    if intersection_point.y < EPSYLON {
-                        intersection_point.y = 0.0;
-                    }
-                    if intersection_point.z < EPSYLON {
-                        intersection_point.z = 0.0;
-                    }
-
+        if erase_box.is_none() {
+            for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
+                if let Some(point) = self.cursor_ray.plane_intersection(plane) {
                     #[cfg(feature = "debug_ray")]
+                    log::debug!(
+                        "{:?} intersects with mouse world position at {:?}",
+                        plane.name,
+                        point
+                    );
+                    if point.x <= mesh_count
+                        && point.x >= 0.0
+                        && point.y <= mesh_count
+                        && point.y >= 0.0
+                        && point.z <= mesh_count
+                        && point.z >= 0.0
                     {
-                        closest_plane_name = plane.name;
+                        intersection_point = point;
+
+                        // Workaround for really small floating point coordinates can cause stuttering in the cursor movement
+                        if intersection_point.x < EPSYLON {
+                            intersection_point.x = 0.0;
+                        }
+                        if intersection_point.y < EPSYLON {
+                            intersection_point.y = 0.0;
+                        }
+                        if intersection_point.z < EPSYLON {
+                            intersection_point.z = 0.0;
+                        }
+
+                        #[cfg(feature = "debug_ray")]
+                        {
+                            closest_plane_name = plane.name;
+                        }
+                        closest_plane = Some(plane);
+                        break;
                     }
-                    closest_plane = Some(plane);
-                    break;
+                    // An aletrnative way to compute closest plane for more general cases using a dist variable
+                    /*let dist_vec = self.cursor_ray.origin - point;
+                    let dot = dist_vec.dot(dist_vec);
+                    if dot < dist {
+                        intersection_point = point;
+                        dist = dot;
+                    }*/
                 }
-                // An aletrnative way to compute closest plane for more general cases using a dist variable
-                /*let dist_vec = cam_pos - point;
-                let dot = dist_vec.dot(dist_vec);
-                if dot < dist {
-                    intersection_point = point;
-                    dist = dot;
-                }*/
             }
         }
+
 
         #[cfg(feature = "debug_ray")]
         log::debug!(
@@ -131,12 +142,26 @@ impl Editor {
         );
         match self.state {
             EditorState::ChangeView => {
-                self.renderer
-                    .update_cursor_pos(intersection_point, closest_plane);
+                if let Some(bbox) = erase_box {
+                    match self.ui.controls().edit_op() {
+                        EditOp::Draw => self.renderer.update_cursor_pos(draw_box.unwrap()),
+                        EditOp::Erase => self.renderer.update_cursor_pos(bbox),
+                    };
+                } else {
+                    self.renderer
+                        .update_cursor_pos_on_plane(intersection_point, closest_plane);
+                }
             }
             EditorState::Edit => {
-                self.renderer
-                    .update_draw_rectangle(intersection_point, closest_plane);
+                if let Some(bbox) = erase_box {
+                    match self.ui.controls().edit_op() {
+                        EditOp::Draw => self.renderer.update_draw_rectangle(draw_box.unwrap()),
+                        EditOp::Erase => self.renderer.update_draw_rectangle(bbox),
+                    };
+                } else {
+                    self.renderer
+                        .update_draw_rectangle_on_plane(intersection_point, closest_plane);
+                }
             }
             EditorState::EditFinished => {
                 match self.ui.controls().edit_op() {
@@ -233,7 +258,7 @@ impl Editor {
             renderer,
             ui,
             state: EditorState::ChangeView,
-            cursor_pos_world: Vector3::new(0.0, 0.0, 0.0),
+            cursor_ray: Ray::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0)),
         };
 
         let mut last_update_inst = time::Instant::now();
