@@ -11,12 +11,26 @@ env:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+          - os: macOS-latest
+          - os: windows-latest
 
     steps:
+    - name: Install Linux gtk dependency
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get update && sudo apt-get install libgtk-3-dev
     - uses: actions/checkout@v2
+    - name: Rust version
+      run: rustc -V
+    - name: Fix windows build error
+      if: matrix.os == 'windows-latest'
+      run: cargo update -p error-code --precise 2.0.0
     - name: Build
-      run: cargo build --verbose
+      run: cargo build
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test
