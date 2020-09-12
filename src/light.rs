@@ -10,7 +10,7 @@ pub struct Light {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct LightRaw {
-    pub pos: [f32; 4],
+    pub pos: [f32; 3],
     pub color: [f32; 4],
 }
 
@@ -20,7 +20,7 @@ unsafe impl Zeroable for LightRaw {}
 impl Light {
     pub fn to_raw(&self) -> LightRaw {
         LightRaw {
-            pos: [self.pos.x, self.pos.y, self.pos.z, 1.0],
+            pos: [self.pos.x, self.pos.y, self.pos.z],
             color: [
                 self.color.r as f32,
                 self.color.g as f32,

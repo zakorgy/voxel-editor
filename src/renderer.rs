@@ -22,13 +22,13 @@ use bytemuck::{Pod, Zeroable};
 
 #[derive(Clone, Copy)]
 pub struct Vertex {
-    _pos: [f32; 4],
+    _pos: [f32; 3],
     _col: [f32; 4],
 }
 
 #[derive(Clone, Copy)]
 pub struct VoxelVertex {
-    pub pos: [f32; 4],
+    pub pos: [f32; 3],
     _col: [f32; 4],
     pub normal: [f32; 3],
 }
@@ -45,14 +45,14 @@ fn white_vertex(pos: [f32; 3]) -> Vertex {
 
 fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     Vertex {
-        _pos: [pos[0], pos[1], pos[2], 1.0],
+        _pos: [pos[0], pos[1], pos[2]],
         _col: col,
     }
 }
 
 fn voxel_vertex(pos: [f32; 3], col: [f32; 4], normal: [f32; 3]) -> VoxelVertex {
     VoxelVertex {
-        pos: [pos[0], pos[1], pos[2], 1.0],
+        pos: [pos[0], pos[1], pos[2]],
         _col: col,
         normal,
     }
@@ -522,13 +522,13 @@ impl Renderer {
             mesh_count as f32,
         );
 
-        let mx = camera.mvp_matrix(sc_desc.width as f32 / sc_desc.height as f32);
-        let mx_ref = mx.as_ref();
+        let matrices = camera.mvp_matrices(sc_desc.width as f32 / sc_desc.height as f32);
+        let matrices_ref = matrices.as_ref();
         let uniform_buf = device.create_buffer_with_data(
-            bytemuck::cast_slice(mx_ref),
+            bytemuck::cast_slice(matrices_ref),
             wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         );
-        let uniform_buf_size = mem::size_of::<[f32; 16]>() as u64;
+        let uniform_buf_size = 3 * mem::size_of::<[f32; 16]>() as u64;
 
         // Create bind group
         let mesh_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -593,14 +593,14 @@ impl Renderer {
                     attributes: &[
                         // Position
                         wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float4,
+                            format: wgpu::VertexFormat::Float3,
                             offset: 0,
                             shader_location: 0,
                         },
                         // Color
                         wgpu::VertexAttributeDescriptor {
                             format: wgpu::VertexFormat::Float4,
-                            offset: 4 * 4,
+                            offset: 3 * 4,
                             shader_location: 1,
                         },
                     ],
@@ -698,14 +698,14 @@ impl Renderer {
                     attributes: &[
                         // Position
                         wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float4,
+                            format: wgpu::VertexFormat::Float3,
                             offset: 0,
                             shader_location: 0,
                         },
                         // Color
                         wgpu::VertexAttributeDescriptor {
                             format: wgpu::VertexFormat::Float4,
-                            offset: 4 * 4,
+                            offset: 3 * 4,
                             shader_location: 1,
                         },
                     ],
@@ -751,7 +751,7 @@ impl Renderer {
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1, // lights
-                    visibility: wgpu::ShaderStage::FRAGMENT,
+                    visibility: wgpu::ShaderStage::VERTEX,
                     ty: wgpu::BindingType::UniformBuffer { dynamic: false },
                 },
             ],
@@ -782,8 +782,8 @@ impl Renderer {
             label: None,
         });
 
-        let vs_bytes = include_bytes!("../shaders/voxel.vert.spv");
-        let fs_bytes = include_bytes!("../shaders/voxel.frag.spv");
+        let vs_bytes = include_bytes!("../shaders/voxel_new.vert.spv");
+        let fs_bytes = include_bytes!("../shaders/voxel_new.frag.spv");
 
         // Create the voxel rendering pipeline
         let vs_module_voxel = device
@@ -832,20 +832,20 @@ impl Renderer {
                     attributes: &[
                         // Position
                         wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float4,
+                            format: wgpu::VertexFormat::Float3,
                             offset: 0,
                             shader_location: 0,
                         },
                         // Color
                         wgpu::VertexAttributeDescriptor {
                             format: wgpu::VertexFormat::Float4,
-                            offset: 4 * 4,
+                            offset: 3 * 4,
                             shader_location: 1,
                         },
                         // Normal
                         wgpu::VertexAttributeDescriptor {
                             format: wgpu::VertexFormat::Float4,
-                            offset: 8 * 4,
+                            offset: 7 * 4,
                             shader_location: 2,
                         },
                     ],
@@ -910,7 +910,7 @@ impl Renderer {
             voxel_manager: VoxelManager::new(mesh_count as usize),
             mesh_count,
             light: Light {
-                pos: cgmath::Point3::new(18.0, 18.0, 18.0),
+                pos: cgmath::Point3::new(DEFAULT_MESH_COUNT as f32 + 2.0, DEFAULT_MESH_COUNT as f32 + 2.0, DEFAULT_MESH_COUNT as f32 + 2.0),
                 color: wgpu::Color {
                     r: 1.0,
                     g: 1.0,
@@ -932,13 +932,13 @@ impl Renderer {
     pub fn update_view(&mut self, event: winit::event::WindowEvent) {
         let viewport_changed = self.camera.update(&event);
         if viewport_changed {
-            let mx = self
+            let matrices = self
                 .camera
-                .mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
-            let mx_ref = mx.as_ref();
+                .mvp_matrices(self.sc_desc.width as f32 / self.sc_desc.height as f32);
+            let matrices_ref = matrices.as_ref();
             Self::write_buffer(
                 &self.device,
-                bytemuck::cast_slice(mx_ref),
+                bytemuck::cast_slice(matrices_ref),
                 &self.mvp_buf,
                 &mut self.command_buffers,
             );
@@ -1121,13 +1121,13 @@ impl Renderer {
         self.sc_desc.width = size.width;
         self.sc_desc.height = size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
-        let mx = self
+        let matrices = self
             .camera
-            .mvp_matrix(self.sc_desc.width as f32 / self.sc_desc.height as f32);
-        let mx_ref = mx.as_ref();
+            .mvp_matrices(self.sc_desc.width as f32 / self.sc_desc.height as f32);
+        let matrices_ref = matrices.as_ref();
         Self::write_buffer(
             &self.device,
-            bytemuck::cast_slice(mx_ref),
+            bytemuck::cast_slice(matrices_ref),
             &self.mvp_buf,
             &mut self.command_buffers,
         );

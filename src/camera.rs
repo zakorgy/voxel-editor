@@ -1,5 +1,5 @@
 use camera_controllers::{
-    model_view_projection, CameraPerspective, Keys, OrbitZoomCamera, OrbitZoomCameraSettings,
+    CameraPerspective, Keys, OrbitZoomCamera, OrbitZoomCameraSettings,
 };
 use cgmath::Transform;
 use winit::event;
@@ -47,13 +47,14 @@ impl CameraWrapper {
     }
 
     /// Generates the MVP matrix for the current camera setting
-    pub fn mvp_matrix(&mut self, aspect_ratio: f32) -> [[f32; 4]; 4] {
+    pub fn mvp_matrices(&mut self, aspect_ratio: f32) -> [[[f32; 4]; 4]; 3] {
         self.cam_persp.aspect_ratio = aspect_ratio;
-        model_view_projection(
-            *cgmath::Matrix4::one().as_ref(),
-            self.camera.camera(0.0).orthogonal(),
-            self.cam_persp.projection(),
-        )
+
+        let model = cgmath::Matrix4::one();
+        let view = self.camera.camera(0.0).orthogonal();
+        let proj = self.cam_persp.projection();
+
+        [model.into(), view, proj]
     }
 
     pub fn model_view_mat(&self) -> cgmath::Matrix4<f32> {
