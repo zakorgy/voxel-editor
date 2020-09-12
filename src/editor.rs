@@ -190,7 +190,7 @@ impl Editor {
         buffer.write_all(b"# List of geometric vertices, with (x, y, z [,w]) coordinates, w is optional and defaults to 1.0.\n")?;
 
         for vd in vertex_data.iter() {
-            buffer.write_all(format!("v {:.3} {:.3} {:.3} {:.3}\n", vd.pos[0] as f32, vd.pos[1] as f32, vd.pos[2] as f32, vd.pos[3] as f32).as_ref())?;
+            buffer.write_all(format!("v {:.3} {:.3} {:.3} 1.0\n", vd.pos[0] as f32, vd.pos[1] as f32, vd.pos[2] as f32).as_ref())?;
         }
 
         buffer.write_all(b"# List of vertex normals in (x,y,z) form; normals might not be unit vectors.\n")?;
