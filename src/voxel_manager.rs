@@ -1,4 +1,5 @@
 use crate::geometry::{BoundingBox, Ray, ray_box_intersection};
+use crate::vertex::VoxelVertex;
 use cgmath::Vector3;
 
 #[derive(Copy, Clone)]
@@ -142,5 +143,40 @@ impl VoxelManager {
             }
         }
         (erase_box, draw_box)
+    }
+
+    pub fn vertices(&self) -> (Vec<VoxelVertex>, Vec<u32>) {
+        let mut vertex_data = Vec::new();
+        let mut index_data = Vec::new();
+        let mut step;
+        let mut idx;
+        let mut bbox;
+        for x in 0..self.extent {
+            for y in 0..self.extent {
+                for z in 0..self.extent {
+                    if let Some(desc) = self.boxes[x][y][z] {
+                        idx = vertex_data.len() as u32;
+                        for i in 0..6 {
+                            step = 4 * i;
+                            index_data.extend_from_slice(&[
+                                idx + step,
+                                idx + 1 + step,
+                                idx + 2 + step,
+                                idx + 2 + step,
+                                idx + 3 + step,
+                                idx + step,
+                            ]);
+                        }
+                        bbox = BoundingBox::new(
+                            cgmath::Vector3::new(x as f32, y as f32, z as f32),
+                            cgmath::Vector3::new(1.0, 1.0, 1.0),
+                            desc.color,
+                        );
+                        vertex_data.append(&mut bbox.voxel_vertices());
+                    }
+                }
+            }
+        }
+        (vertex_data, index_data)
     }
 }

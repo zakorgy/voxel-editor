@@ -1,4 +1,5 @@
 use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
+use crate::vertex::*;
 
 pub const EPSYLON: f32 = 0.000001;
 
@@ -223,6 +224,238 @@ impl BoundingBox {
             return;
         }
         *self = Self::from_corner_points(closest_to_origo, farthest_from_origo, self.color);
+    }
+
+    pub fn vertices(&self) -> Vec<Vertex> {
+        let mut vertex_data = Vec::new();
+        let corner_points = self.corner_points();
+        let color = self.color;
+
+        // back
+        /*0*/
+        vertex_data.push(vertex(corner_points[0].into(), color));
+        /*1*/
+        vertex_data.push(vertex(corner_points[3].into(), color));
+        /*2*/
+        vertex_data.push(vertex(corner_points[2].into(), color));
+        /*3*/
+        vertex_data.push(vertex(corner_points[1].into(), color));
+
+        // bottom
+        /*4*/
+        vertex_data.push(vertex(corner_points[1].into(), color));
+        /*5*/
+        vertex_data.push(vertex(corner_points[5].into(), color));
+        /*6*/
+        vertex_data.push(vertex(corner_points[4].into(), color));
+        /*7*/
+        vertex_data.push(vertex(corner_points[0].into(), color));
+
+        // right
+        /*9*/
+        vertex_data.push(vertex(corner_points[2].into(), color));
+        /*8*/
+        vertex_data.push(vertex(corner_points[6].into(), color));
+        /*10*/
+        vertex_data.push(vertex(corner_points[5].into(), color));
+        /*11*/
+        vertex_data.push(vertex(corner_points[1].into(), color));
+
+        // top
+        /*12*/
+        vertex_data.push(vertex(corner_points[3].into(), color));
+        /*13*/
+        vertex_data.push(vertex(corner_points[7].into(), color));
+        /*14*/
+        vertex_data.push(vertex(corner_points[6].into(), color));
+        /*15*/
+        vertex_data.push(vertex(corner_points[2].into(), color));
+
+        // left
+        /*16*/
+        vertex_data.push(vertex(corner_points[3].into(), color));
+        /*17*/
+        vertex_data.push(vertex(corner_points[0].into(), color));
+        /*18*/
+        vertex_data.push(vertex(corner_points[4].into(), color));
+        /*19*/
+        vertex_data.push(vertex(corner_points[7].into(), color));
+
+        // front
+        /*20*/
+        vertex_data.push(vertex(corner_points[4].into(), color));
+        /*21*/
+        vertex_data.push(vertex(corner_points[5].into(), color));
+        /*22*/
+        vertex_data.push(vertex(corner_points[6].into(), color));
+        /*23*/
+        vertex_data.push(vertex(corner_points[7].into(), color));
+
+        vertex_data
+    }
+
+    pub fn voxel_vertices(&self) -> Vec<VoxelVertex> {
+        let mut vertex_data = Vec::new();
+        let corner_points = self.corner_points();
+        let color = self.color;
+
+        // back
+        /*0*/
+        vertex_data.push(voxel_vertex(
+            corner_points[0].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+        /*1*/
+        vertex_data.push(voxel_vertex(
+            corner_points[3].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+        /*2*/
+        vertex_data.push(voxel_vertex(
+            corner_points[2].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+        /*3*/
+        vertex_data.push(voxel_vertex(
+            corner_points[1].into(),
+            color,
+            [0.0, 0.0, -1.0],
+        ));
+
+        // bottom
+        /*4*/
+        vertex_data.push(voxel_vertex(
+            corner_points[1].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+        /*5*/
+        vertex_data.push(voxel_vertex(
+            corner_points[5].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+        /*6*/
+        vertex_data.push(voxel_vertex(
+            corner_points[4].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+        /*7*/
+        vertex_data.push(voxel_vertex(
+            corner_points[0].into(),
+            color,
+            [0.0, -1.0, 0.0],
+        ));
+
+        // right
+        /*9*/
+        vertex_data.push(voxel_vertex(
+            corner_points[2].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+        /*8*/
+        vertex_data.push(voxel_vertex(
+            corner_points[6].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+        /*10*/
+        vertex_data.push(voxel_vertex(
+            corner_points[5].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+        /*11*/
+        vertex_data.push(voxel_vertex(
+            corner_points[1].into(),
+            color,
+            [1.0, 0.0, 0.0],
+        ));
+
+        // top
+        /*12*/
+        vertex_data.push(voxel_vertex(
+            corner_points[3].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+        /*13*/
+        vertex_data.push(voxel_vertex(
+            corner_points[7].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+        /*14*/
+        vertex_data.push(voxel_vertex(
+            corner_points[6].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+        /*15*/
+        vertex_data.push(voxel_vertex(
+            corner_points[2].into(),
+            color,
+            [0.0, 1.0, 0.0],
+        ));
+
+        // left
+        /*16*/
+        vertex_data.push(voxel_vertex(
+            corner_points[3].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+        /*17*/
+        vertex_data.push(voxel_vertex(
+            corner_points[0].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+        /*18*/
+        vertex_data.push(voxel_vertex(
+            corner_points[4].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+        /*19*/
+        vertex_data.push(voxel_vertex(
+            corner_points[7].into(),
+            color,
+            [-1.0, 0.0, 0.0],
+        ));
+
+        // front
+        /*20*/
+        vertex_data.push(voxel_vertex(
+            corner_points[4].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+        /*21*/
+        vertex_data.push(voxel_vertex(
+            corner_points[5].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+        /*22*/
+        vertex_data.push(voxel_vertex(
+            corner_points[6].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+        /*23*/
+        vertex_data.push(voxel_vertex(
+            corner_points[7].into(),
+            color,
+            [0.0, 0.0, 1.0],
+        ));
+
+        vertex_data
     }
 }
 

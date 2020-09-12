@@ -1,10 +1,12 @@
 mod camera;
+mod color;
 mod controls;
 mod editor;
 mod geometry;
 mod light;
 mod renderer;
 mod ui;
+mod vertex;
 mod voxel_manager;
 
 use editor::Editor;
