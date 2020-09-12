@@ -1,5 +1,5 @@
-use bytemuck::{Pod, Zeroable};
 use crate::color::*;
+use bytemuck::{Pod, Zeroable};
 
 #[derive(Clone, Copy)]
 pub struct Vertex {

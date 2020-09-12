@@ -5,10 +5,10 @@ use crate::ui::Ui;
 use cgmath::Vector3;
 use futures::executor::block_on;
 use iced_wgpu::wgpu;
-use std::time;
 use std::fs::File;
-use std::io::BufWriter;
 use std::io::prelude::*;
+use std::io::BufWriter;
+use std::time;
 
 use winit::{
     event::{self, WindowEvent},
@@ -80,7 +80,10 @@ impl Editor {
         self.renderer
             .cursor_helper(Some(self.cursor_ray.origin), self.cursor_ray.end);
 
-        let (erase_box, draw_box) = self.renderer.voxel_manager.get_intersection_box(&self.cursor_ray);
+        let (erase_box, draw_box) = self
+            .renderer
+            .voxel_manager
+            .get_intersection_box(&self.cursor_ray);
         #[cfg(feature = "debug_ray")]
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
@@ -132,7 +135,6 @@ impl Editor {
                 }
             }
         }
-
 
         #[cfg(feature = "debug_ray")]
         log::debug!(
@@ -190,19 +192,44 @@ impl Editor {
         buffer.write_all(b"# List of geometric vertices, with (x, y, z [,w]) coordinates, w is optional and defaults to 1.0.\n")?;
 
         for vd in vertex_data.iter() {
-            buffer.write_all(format!("v {:.3} {:.3} {:.3} 1.0\n", vd.pos[0] as f32, vd.pos[1] as f32, vd.pos[2] as f32).as_ref())?;
+            buffer.write_all(
+                format!(
+                    "v {:.3} {:.3} {:.3} 1.0\n",
+                    vd.pos[0] as f32, vd.pos[1] as f32, vd.pos[2] as f32
+                )
+                .as_ref(),
+            )?;
         }
 
-        buffer.write_all(b"# List of vertex normals in (x,y,z) form; normals might not be unit vectors.\n")?;
+        buffer.write_all(
+            b"# List of vertex normals in (x,y,z) form; normals might not be unit vectors.\n",
+        )?;
 
         for vd in vertex_data.iter() {
-            buffer.write_all(format!("vn {:.3} {:.3} {:.3}\n", vd.normal[0], vd.normal[1], vd.normal[2]).as_ref())?;
+            buffer.write_all(
+                format!(
+                    "vn {:.3} {:.3} {:.3}\n",
+                    vd.normal[0], vd.normal[1], vd.normal[2]
+                )
+                .as_ref(),
+            )?;
         }
 
         buffer.write_all(b"# Polygonal face element\n")?;
 
         for id in indices.chunks(3) {
-            buffer.write_all(format!("f {}//{} {}//{} {}//{}\n", id[0] + 1, id[0] + 1, id[1] + 1, id[1] + 1, id[2] + 1, id[2] + 1).as_ref())?;
+            buffer.write_all(
+                format!(
+                    "f {}//{} {}//{} {}//{}\n",
+                    id[0] + 1,
+                    id[0] + 1,
+                    id[1] + 1,
+                    id[1] + 1,
+                    id[2] + 1,
+                    id[2] + 1
+                )
+                .as_ref(),
+            )?;
         }
 
         buffer.flush()?;

@@ -1,5 +1,5 @@
-use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 use crate::vertex::*;
+use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 
 pub const EPSYLON: f32 = 0.000001;
 
@@ -96,7 +96,11 @@ pub struct Ray {
 
 impl Ray {
     pub fn new(origin: Vector3<f32>, end: Vector3<f32>) -> Self {
-        Ray { origin, vector: origin - end, end }
+        Ray {
+            origin,
+            vector: origin - end,
+            end,
+        }
     }
 
     pub fn plane_intersection(&self, plane: &Plane) -> Option<Vector3<f32>> {
@@ -459,8 +463,7 @@ impl BoundingBox {
     }
 }
 
-pub fn ray_box_intersection(bbox: &BoundingBox,  ray: &Ray, dist: &mut f32) -> bool
-{
+pub fn ray_box_intersection(bbox: &BoundingBox, ray: &Ray, dist: &mut f32) -> bool {
     let mut tmin = f32::NEG_INFINITY;
     let mut tmax = f32::INFINITY;
 

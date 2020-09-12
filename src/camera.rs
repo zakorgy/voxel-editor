@@ -1,6 +1,4 @@
-use camera_controllers::{
-    CameraPerspective, Keys, OrbitZoomCamera, OrbitZoomCameraSettings,
-};
+use camera_controllers::{CameraPerspective, Keys, OrbitZoomCamera, OrbitZoomCameraSettings};
 use cgmath::Transform;
 use winit::event;
 

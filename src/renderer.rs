@@ -526,7 +526,11 @@ impl Renderer {
             voxel_manager: VoxelManager::new(mesh_count as usize),
             mesh_count,
             light: Light {
-                pos: cgmath::Point3::new(DEFAULT_MESH_COUNT as f32 + 2.0, DEFAULT_MESH_COUNT as f32 + 2.0, DEFAULT_MESH_COUNT as f32 + 2.0),
+                pos: cgmath::Point3::new(
+                    DEFAULT_MESH_COUNT as f32 + 2.0,
+                    DEFAULT_MESH_COUNT as f32 + 2.0,
+                    DEFAULT_MESH_COUNT as f32 + 2.0,
+                ),
                 color: wgpu::Color {
                     r: 1.0,
                     g: 1.0,
@@ -598,7 +602,11 @@ impl Renderer {
         self.render_cursor = true;
     }
 
-    pub fn update_draw_rectangle_on_plane(&mut self, pos: cgmath::Vector3<f32>, plane: Option<&Plane>) {
+    pub fn update_draw_rectangle_on_plane(
+        &mut self,
+        pos: cgmath::Vector3<f32>,
+        plane: Option<&Plane>,
+    ) {
         if let Some(plane) = plane {
             let end_cube = BoundingBox::new(
                 Self::get_grid_pos(pos),
@@ -660,7 +668,7 @@ impl Renderer {
     pub fn debug_update(&mut self) {
         let (vertex_data, index_data) = self.voxel_manager.vertices();
         if vertex_data.len() == 0 {
-            return
+            return;
         }
         Self::write_buffer(
             &self.device,
