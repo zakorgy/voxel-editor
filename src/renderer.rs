@@ -543,8 +543,8 @@ impl Renderer {
             label: None,
         });
 
-        let vs_bytes = include_bytes!("shader.vert.spv");
-        let fs_bytes = include_bytes!("shader.frag.spv");
+        let vs_bytes = include_bytes!("../shaders/mesh.vert.spv");
+        let fs_bytes = include_bytes!("../shaders/mesh.frag.spv");
 
         // Create the mesh rendering pipeline
         let vs_module = device
@@ -782,8 +782,8 @@ impl Renderer {
             label: None,
         });
 
-        let vs_bytes = include_bytes!("voxel_shader.vert.spv");
-        let fs_bytes = include_bytes!("voxel_shader.frag.spv");
+        let vs_bytes = include_bytes!("../shaders/voxel.vert.spv");
+        let fs_bytes = include_bytes!("../shaders/voxel.frag.spv");
 
         // Create the voxel rendering pipeline
         let vs_module_voxel = device

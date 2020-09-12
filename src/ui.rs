@@ -105,8 +105,8 @@ impl Ui {
 }
 
 pub fn build_ui_pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
-    let vs = include_bytes!("../shaders/vert.spv");
-    let fs = include_bytes!("../shaders/frag.spv");
+    let vs = include_bytes!("../shaders/ui.vert.spv");
+    let fs = include_bytes!("../shaders/ui.frag.spv");
 
     let vs_module =
         device.create_shader_module(&wgpu::read_spirv(std::io::Cursor::new(&vs[..])).unwrap());
