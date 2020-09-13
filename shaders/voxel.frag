@@ -34,16 +34,49 @@ float fetch_shadow(vec4 homogeneous_coords) {
   return 1.0;
 }
 
+float fetch_shadow_pcf(vec4 homogeneous_coords) {
+  if (homogeneous_coords.w <= 0.0) {
+    return 1.0;
+  }
+  // compensate for the Y-flip difference between the NDC and texture
+  // coordinates
+  const vec2 flip_correction = vec2(0.5, -0.5);
+  // compute texture coordinates for shadow lookup
+  vec3 light_local =
+      vec3(homogeneous_coords.xy * flip_correction / homogeneous_coords.w + 0.5,
+           homogeneous_coords.z / homogeneous_coords.w);
+
+  float bias = 0.7;
+  vec3 ShadowCoord = vec3(light_local.xy, light_local.z);
+  float shadow = texture( sampler2DShadow(t_Shadow, s_Shadow), ShadowCoord);
+  if (shadow  < (ShadowCoord.z - bias)) {
+    shadow = 49.0;
+    bias = 0.9;
+    vec2 texelSize = 1.0 / textureSize(sampler2DShadow(t_Shadow, s_Shadow), 0);
+    for(int x = -3; x <= 3; ++x)
+    {
+        for(int y = -3; y <= 3; ++y)
+        {
+            float pcfDepth = texture(sampler2DShadow(t_Shadow, s_Shadow), vec3(ShadowCoord.xy + vec2(x, y) * texelSize, ShadowCoord.z));
+            shadow -= ShadowCoord.z - bias > pcfDepth ? 0.4 : 0.0;
+        }
+    }
+    shadow /= 49.0;
+    return shadow;
+  }
+  return 1.0;
+}
+
 void main() {
   vec3 N = normalize(fragNormal);
   vec3 L = normalize(fragLightVec);
   vec3 V = normalize(fragViewVec.xyz);
   vec3 R = reflect(L, N);
 
-  vec3 ambient = fragColor.xyz * 0.2;
+  vec3 ambient = fragColor.xyz * 0.35;
   vec3 diffuse = fragColor.xyz * max(dot(N, L), 0.0);
   //vec3 specular = pow(max(dot(R, V), 0.0), 16.0) * vec3(1.35);
-  float shadow = fetch_shadow(fragLightProj * vertPos);
+  float shadow = fetch_shadow_pcf(fragLightProj * vertPos);
 
   outColor = vec4(ambient + diffuse * shadow /*+ specular*/, fragColor.z);
 }

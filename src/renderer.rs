@@ -374,8 +374,8 @@ impl Renderer {
 
         let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
-                width: sc_desc.width,
-                height: sc_desc.height,
+                width: 2048,
+                height: 2048,
                 depth: 1,
             },
             array_layer_count: 1,
