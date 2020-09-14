@@ -8,6 +8,8 @@ layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragViewVec;
 layout(location = 3) out vec3 fragLightVec;
+layout(location = 4) out vec4 vertPos;
+layout(location = 5) out mat4 fragLightProj;
 
 layout(set = 0, binding = 0) uniform UBO {
     mat4 model;
@@ -16,8 +18,9 @@ layout(set = 0, binding = 0) uniform UBO {
 } ubo;
 
 layout(set = 0, binding = 1) uniform LightUBO {
-    vec3 lightPos;
-    vec4 lighColor;
+    vec4 pos;
+    vec4 color;
+    mat4 projection;
 } light;
 
 void main() {
@@ -27,5 +30,7 @@ void main() {
     fragColor = inColor;
     fragNormal = mat3(ubo.model) * inNormal;
     fragViewVec = (ubo.view * worldPos).xyz;
-    fragLightVec = light.lightPos - vec3(worldPos);
+    fragLightVec = (light.pos - worldPos).xyz;
+    vertPos = vec4(inPos, 1.0);
+    fragLightProj = light.projection;
 }
