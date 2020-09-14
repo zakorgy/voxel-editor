@@ -148,6 +148,7 @@ impl Editor {
                     match self.ui.controls().edit_op() {
                         EditOp::Draw => self.renderer.update_cursor_pos(draw_box.unwrap()),
                         EditOp::Erase => self.renderer.update_cursor_pos(bbox),
+                        EditOp::ReFill => self.renderer.update_cursor_pos(bbox),
                     };
                 } else {
                     self.renderer
@@ -159,6 +160,7 @@ impl Editor {
                     match self.ui.controls().edit_op() {
                         EditOp::Draw => self.renderer.update_draw_rectangle(draw_box.unwrap()),
                         EditOp::Erase => self.renderer.update_draw_rectangle(bbox),
+                        EditOp::ReFill => self.renderer.update_draw_rectangle(bbox),
                     };
                 } else {
                     self.renderer
@@ -172,6 +174,10 @@ impl Editor {
                         self.renderer.draw_rectangle([c.r, c.g, c.b, c.a])
                     }
                     EditOp::Erase => self.renderer.erase_rectangle(),
+                    EditOp::ReFill => {
+                        let c = self.ui.controls().draw_color();
+                        self.renderer.fill_rectangle([c.r, c.g, c.b, c.a])
+                    }
                 };
                 self.state = EditorState::ChangeView;
             }

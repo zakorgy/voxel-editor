@@ -16,10 +16,11 @@ pub const COLOR_SIZE: f32 = 30.0;
 pub enum EditOp {
     Draw,
     Erase,
+    ReFill,
 }
 
 impl EditOp {
-    pub const ALL: [EditOp; 2] = [EditOp::Draw, EditOp::Erase];
+    pub const ALL: [EditOp; 3] = [EditOp::Draw, EditOp::Erase, EditOp::ReFill];
 }
 
 impl Default for EditOp {

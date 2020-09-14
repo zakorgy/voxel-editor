@@ -56,6 +56,24 @@ impl VoxelManager {
         }
     }
 
+    pub fn refill(&mut self, bbox: BoundingBox) {
+        let origin: Vector3<usize> = Vector3::new(
+            bbox.corner.x as usize,
+            bbox.corner.y as usize,
+            bbox.corner.z as usize,
+        );
+        for x in origin.x..origin.x + bbox.extent.x as usize {
+            for y in origin.y..origin.y + bbox.extent.y as usize {
+                for z in origin.z..origin.z + bbox.extent.z as usize {
+                    if self.boxes[x][y][z].is_some()
+                    {
+                        self.boxes[x][y][z] = Some(CubeDescriptor::new(bbox.color.into()));
+                    }
+                }
+            }
+        }
+    }
+
     fn get_neighbour_boxes(
         &mut self,
         pos_x: usize,

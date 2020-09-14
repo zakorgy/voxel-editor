@@ -814,6 +814,31 @@ impl Renderer {
         }
     }
 
+    pub fn fill_rectangle(&mut self, color: [f32; 4]) {
+        if let Some(mut cube) = self.draw_cube.take() {
+            cube.rearrange();
+            cube.color = color;
+            self.voxel_manager.refill(cube);
+            let (vertex_data, index_data) = self.voxel_manager.vertices();
+            if index_data.len() > 0 {
+                Self::write_buffer(
+                    &self.device,
+                    bytemuck::cast_slice(&vertex_data),
+                    &self.voxel_pipeline.vertex_buf,
+                    &mut self.command_buffers,
+                );
+                Self::write_buffer(
+                    &self.device,
+                    bytemuck::cast_slice(&index_data),
+                    &self.voxel_pipeline.index_buf,
+                    &mut self.command_buffers,
+                );
+            }
+            self.voxel_pipeline.index_count = index_data.len();
+            self.shadow_pipeline.index_count = self.voxel_pipeline.index_count;
+        }
+    }
+
     #[cfg(feature = "debug_ray")]
     pub fn debug_update(&mut self) {
         let (vertex_data, index_data) = self.voxel_manager.vertices();
