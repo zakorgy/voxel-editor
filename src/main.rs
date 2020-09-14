@@ -17,7 +17,7 @@ pub fn run(title: &str) {
     let mut builder = winit::window::WindowBuilder::new();
     builder = builder
         .with_title(title)
-        .with_inner_size(winit::dpi::LogicalSize::new(1024, 768));
+        .with_inner_size(winit::dpi::LogicalSize::new(1280, 720));
     let window = builder.build(&event_loop).unwrap();
     env_logger::init();
     Editor::run_editor(event_loop, window);
