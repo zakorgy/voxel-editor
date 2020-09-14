@@ -16,11 +16,11 @@ pub const COLOR_SIZE: f32 = 30.0;
 pub enum EditOp {
     Draw,
     Erase,
-    ReFill,
+    Refill,
 }
 
 impl EditOp {
-    pub const ALL: [EditOp; 3] = [EditOp::Draw, EditOp::Erase, EditOp::ReFill];
+    pub const ALL: [EditOp; 3] = [EditOp::Draw, EditOp::Erase, EditOp::Refill];
 }
 
 impl Default for EditOp {
@@ -142,7 +142,7 @@ impl PickedColor {
 }
 
 pub struct Controls {
-    edit_op: EditOp,
+    edit_op: Cell<EditOp>,
     export_button: button::State,
     color_picker: ColorPicker,
     picked_color: PickedColor,
@@ -152,7 +152,7 @@ pub struct Controls {
 impl Controls {
     pub fn new() -> Controls {
         Controls {
-            edit_op: EditOp::default(),
+            edit_op: Cell::new(EditOp::default()),
             export_button: button::State::default(),
             color_picker: ColorPicker::default(),
             picked_color: PickedColor::new(Color::BLACK),
@@ -160,8 +160,16 @@ impl Controls {
         }
     }
 
+    pub fn step_edit_op(&self) {
+        match self.edit_op.get() {
+            EditOp::Draw => self.edit_op.set(EditOp::Erase),
+            EditOp::Erase => self.edit_op.set(EditOp::Refill),
+            EditOp::Refill => self.edit_op.set(EditOp::Draw),
+        }
+    }
+
     pub fn edit_op(&self) -> EditOp {
-        self.edit_op
+        self.edit_op.get()
     }
 
     pub fn draw_color(&self) -> Color {
@@ -179,7 +187,7 @@ impl Program for Controls {
 
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
-            Message::EditChanged(op) => self.edit_op = op,
+            Message::EditChanged(op) => self.edit_op.set(op),
             Message::ExportPressed => {
                 let result = nfd::open_save_dialog(Some("obj"), None).unwrap_or_else(|e| {
                     panic!(e);
@@ -203,12 +211,12 @@ impl Program for Controls {
                 Column::new()
                     .width(Length::Units(150))
                     .spacing(10)
-                    .push(Text::new("Edit state:")),
+                    .push(Text::new("Edit state (Press space to step):")),
                 |column, state| {
                     column.push(Radio::new(
                         *state,
                         &format!("{:?}", state),
-                        Some(self.edit_op),
+                        Some(self.edit_op.get()),
                         Message::EditChanged,
                     ))
                 },
