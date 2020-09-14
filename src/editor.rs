@@ -308,9 +308,16 @@ impl Editor {
         };
 
         let mut last_update_inst = time::Instant::now();
+        let mut last_fps_instant = time::Instant::now();
+        let mut frame_rendered = 0;
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
+            if last_fps_instant.elapsed() > time::Duration::from_secs(1) {
+                editor.window.set_title(&format!("Voxel-editor (FPS: {:?})", frame_rendered));
+                last_fps_instant = time::Instant::now();
+                frame_rendered = 0;
+            }
             if let Some(file_path) = editor.ui.controls().save_path() {
                 match editor.save_vertices(file_path) {
                     Err(e) => println!("Failed to save file reason: {:?}", e),
@@ -318,14 +325,9 @@ impl Editor {
                 };
             }
             let _ = &adapter; // force ownership by the closure
-            *control_flow = if cfg!(feature = "metal-auto-capture") {
-                ControlFlow::Exit
-            } else {
-                ControlFlow::WaitUntil(time::Instant::now() + time::Duration::from_millis(10))
-            };
             match event {
                 event::Event::MainEventsCleared => {
-                    if last_update_inst.elapsed() > time::Duration::from_millis(20) {
+                    if last_update_inst.elapsed() > time::Duration::from_millis(16) {
                         editor.ui.update_state();
                         editor.window.request_redraw();
                         last_update_inst = time::Instant::now();
@@ -359,6 +361,7 @@ impl Editor {
                 }
                 event::Event::RedrawRequested(_) => {
                     editor.redraw();
+                    frame_rendered += 1;
                 }
                 _ => {}
             }
