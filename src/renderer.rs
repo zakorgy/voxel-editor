@@ -56,8 +56,10 @@ struct Pipeline {
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
     vertex_buf: Rc<wgpu::Buffer>,
+    instance_buf: Option<Rc<wgpu::Buffer>>,
     index_buf: Rc<wgpu::Buffer>,
     index_count: usize,
+    instance_count: usize,
 }
 
 impl Pipeline {
@@ -66,7 +68,10 @@ impl Pipeline {
         render_pass.set_bind_group(0, &self.bind_group, &[]);
         render_pass.set_index_buffer(&self.index_buf, 0, 0);
         render_pass.set_vertex_buffer(0, &self.vertex_buf, 0, 0);
-        render_pass.draw_indexed(0..self.index_count as u32, 0, 0..1);
+        if let Some(ref instance_buf) = self.instance_buf {
+            render_pass.set_vertex_buffer(1, instance_buf, 0, 0);
+        }
+        render_pass.draw_indexed(0..self.index_count as u32, 0, 0..self.instance_count as u32);
     }
 }
 
@@ -244,10 +249,10 @@ impl Renderer {
             wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
         );
 
-        let index_buf_cursor = device.create_buffer_with_data(
+        let index_buf_cursor = Rc::new(device.create_buffer_with_data(
             bytemuck::cast_slice(&cursor_index_data),
             wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
-        );
+        ));
 
         // Create pipeline layout
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -338,20 +343,24 @@ impl Renderer {
 
         //****************************** Setting up voxel pipeline ******************************
         let mc = mesh_count as u64;
-        let vertex_buf_voxel = Rc::new(device.create_buffer(&wgpu::BufferDescriptor {
-            label: None,
-            // We can have a maximum number of mc * mc * mc voxel
-            // Each voxel has 24 vertices
-            size: mc * mc * mc * 24 * mem::size_of::<VoxelVertex>() as u64,
-            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
-        }));
+        let origin_cube = BoundingBox::new(
+            cgmath::Vector3::new(0.0, 0.0, 0.0),
+            cgmath::Vector3::new(1.0, 1.0, 1.0),
+            [1.0; 4],
+        );
 
-        let index_buf_voxel = Rc::new(device.create_buffer(&wgpu::BufferDescriptor {
+        let vertices = origin_cube.voxel_vertices();
+
+        let vertex_buf_voxel = Rc::new(device.create_buffer_with_data(
+            bytemuck::cast_slice(&vertices),
+            wgpu::BufferUsage::VERTEX));
+
+        let instance_buf_voxel = Rc::new(device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
             // We can have a maximum number of mc * mc * mc voxel
-            // We use 36 indices to draw a voxel
-            size: mc * mc * mc * 36 * mem::size_of::<u32>() as u64,
-            usage: wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
+            // Each voxel has one instance data
+            size: mc * mc * mc * mem::size_of::<VoxelInstance>() as u64,
+            usage: wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
         }));
 
         let light_uniform_buf = device.create_buffer(&wgpu::BufferDescriptor {
@@ -495,7 +504,7 @@ impl Renderer {
                 stencil_write_mask: 0,
             }),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint32,
+                index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
                     stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::InputStepMode::Vertex,
@@ -506,17 +515,29 @@ impl Renderer {
                             offset: 0,
                             shader_location: 0,
                         },
+                        // Normal
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float3,
+                            offset: 3 * 4,
+                            shader_location: 1,
+                        },
+                    ],
+                },
+                wgpu::VertexBufferDescriptor {
+                    stride: mem::size_of::<VoxelInstance>() as wgpu::BufferAddress,
+                    step_mode: wgpu::InputStepMode::Instance,
+                    attributes: &[
+                        // Offset
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float3,
+                            offset: 0,
+                            shader_location: 2,
+                        },
                         // Color
                         wgpu::VertexAttributeDescriptor {
                             format: wgpu::VertexFormat::Float4,
                             offset: 3 * 4,
-                            shader_location: 1,
-                        },
-                        // Normal
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float4,
-                            offset: 7 * 4,
-                            shader_location: 2,
+                            shader_location: 3,
                         },
                     ],
                 }],
@@ -592,7 +613,7 @@ impl Renderer {
                 stencil_write_mask: 0,
             }),
             vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint32,
+                index_format: wgpu::IndexFormat::Uint16,
                 vertex_buffers: &[wgpu::VertexBufferDescriptor {
                     stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::InputStepMode::Vertex,
@@ -602,6 +623,18 @@ impl Renderer {
                             format: wgpu::VertexFormat::Float3,
                             offset: 0,
                             shader_location: 0,
+                        },
+                    ],
+                },
+                wgpu::VertexBufferDescriptor {
+                    stride: mem::size_of::<VoxelInstance>() as wgpu::BufferAddress,
+                    step_mode: wgpu::InputStepMode::Instance,
+                    attributes: &[
+                        // Offset
+                        wgpu::VertexAttributeDescriptor {
+                            format: wgpu::VertexFormat::Float3,
+                            offset: 0,
+                            shader_location: 1,
                         },
                     ],
                 }],
@@ -640,29 +673,37 @@ impl Renderer {
                 pipeline: mesh_pipeline,
                 bind_group: mesh_bind_group,
                 vertex_buf: Rc::new(vertex_buf_mesh),
+                instance_buf: None,
                 index_buf: Rc::new(index_buf_mesh),
                 index_count: mesh_index_data.len(),
+                instance_count: 1,
             },
             cursor_pipeline: Pipeline {
                 pipeline: cursor_pipeline,
                 bind_group: cursor_bind_group,
                 vertex_buf: Rc::new(vertex_buf_cursor),
-                index_buf: Rc::new(index_buf_cursor),
+                instance_buf: None,
+                index_buf: index_buf_cursor.clone(),
                 index_count: cursor_index_data.len(),
+                instance_count: 1,
             },
             voxel_pipeline: Pipeline {
                 pipeline: voxel_pipeline,
                 bind_group: voxel_bind_group,
                 vertex_buf: vertex_buf_voxel.clone(),
-                index_buf: index_buf_voxel.clone(),
-                index_count: 0,
+                instance_buf: Some(instance_buf_voxel.clone()),
+                index_buf: index_buf_cursor.clone(),
+                index_count: cursor_index_data.len(),
+                instance_count: 0,
             },
             shadow_pipeline: Pipeline {
                 pipeline: shadow_pipeline,
                 bind_group: shadow_bind_group,
                 vertex_buf: vertex_buf_voxel,
-                index_buf: index_buf_voxel,
-                index_count: 0,
+                instance_buf: Some(instance_buf_voxel),
+                index_buf: index_buf_cursor,
+                index_count: cursor_index_data.len(),
+                instance_count: 0,
             },
             cursor_cube,
             draw_cube: None,
@@ -796,21 +837,15 @@ impl Renderer {
             cube.rearrange();
             cube.color = color;
             self.voxel_manager.add_box(cube);
-            let (vertex_data, index_data) = self.voxel_manager.vertices();
+            let instance_data = self.voxel_manager.instance_data();
             Self::write_buffer(
                 &self.device,
-                bytemuck::cast_slice(&vertex_data),
-                &self.voxel_pipeline.vertex_buf,
+                bytemuck::cast_slice(&instance_data),
+                &self.voxel_pipeline.instance_buf.as_ref().unwrap(),
                 &mut self.command_buffers,
             );
-            Self::write_buffer(
-                &self.device,
-                bytemuck::cast_slice(&index_data),
-                &self.voxel_pipeline.index_buf,
-                &mut self.command_buffers,
-            );
-            self.voxel_pipeline.index_count = index_data.len();
-            self.shadow_pipeline.index_count = self.voxel_pipeline.index_count;
+            self.voxel_pipeline.instance_count = instance_data.len();
+            self.shadow_pipeline.instance_count = self.voxel_pipeline.instance_count;
         }
     }
 
@@ -819,42 +854,30 @@ impl Renderer {
             cube.rearrange();
             cube.color = color;
             self.voxel_manager.refill(cube);
-            let (vertex_data, index_data) = self.voxel_manager.vertices();
-            if index_data.len() > 0 {
+            let instance_data = self.voxel_manager.instance_data();
+            if instance_data.len() > 0 {
                 Self::write_buffer(
                     &self.device,
-                    bytemuck::cast_slice(&vertex_data),
-                    &self.voxel_pipeline.vertex_buf,
-                    &mut self.command_buffers,
-                );
-                Self::write_buffer(
-                    &self.device,
-                    bytemuck::cast_slice(&index_data),
-                    &self.voxel_pipeline.index_buf,
+                    bytemuck::cast_slice(&instance_data),
+                    &self.voxel_pipeline.instance_buf.as_ref().unwrap(),
                     &mut self.command_buffers,
                 );
             }
-            self.voxel_pipeline.index_count = index_data.len();
-            self.shadow_pipeline.index_count = self.voxel_pipeline.index_count;
+            self.voxel_pipeline.instance_count = instance_data.len();
+            self.shadow_pipeline.instance_count = self.voxel_pipeline.instance_count;
         }
     }
 
     #[cfg(feature = "debug_ray")]
     pub fn debug_update(&mut self) {
-        let (vertex_data, index_data) = self.voxel_manager.vertices();
-        if vertex_data.len() == 0 {
+        let instance_data = self.voxel_manager.instance_data();
+        if instance_data.len() == 0 {
             return;
         }
         Self::write_buffer(
             &self.device,
-            bytemuck::cast_slice(&vertex_data),
-            &self.voxel_pipeline.vertex_buf,
-            &mut self.command_buffers,
-        );
-        Self::write_buffer(
-            &self.device,
-            bytemuck::cast_slice(&index_data),
-            &self.voxel_pipeline.index_buf,
+            bytemuck::cast_slice(&instance_data),
+            &self.voxel_pipeline.instance_buf.as_ref().unwrap(),
             &mut self.command_buffers,
         );
     }
@@ -863,23 +886,17 @@ impl Renderer {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
             self.voxel_manager.erase_box(cube);
-            let (vertex_data, index_data) = self.voxel_manager.vertices();
-            if index_data.len() > 0 {
+            let instance_data = self.voxel_manager.instance_data();
+            if instance_data.len() > 0 {
                 Self::write_buffer(
                     &self.device,
-                    bytemuck::cast_slice(&vertex_data),
-                    &self.voxel_pipeline.vertex_buf,
-                    &mut self.command_buffers,
-                );
-                Self::write_buffer(
-                    &self.device,
-                    bytemuck::cast_slice(&index_data),
-                    &self.voxel_pipeline.index_buf,
+                    bytemuck::cast_slice(&instance_data),
+                    &self.voxel_pipeline.instance_buf.as_ref().unwrap(),
                     &mut self.command_buffers,
                 );
             }
-            self.voxel_pipeline.index_count = index_data.len();
-            self.shadow_pipeline.index_count = self.voxel_pipeline.index_count;
+            self.voxel_pipeline.instance_count = instance_data.len();
+            self.shadow_pipeline.instance_count = self.voxel_pipeline.instance_count;
         }
     }
 
@@ -990,7 +1007,8 @@ impl Renderer {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        {
+
+        if self.shadow_pipeline.instance_count > 0 {
             let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 color_attachments: &[],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
@@ -1030,7 +1048,7 @@ impl Renderer {
                 }),
             });
             self.mesh_pipeline.draw(&mut rpass_depth);
-            if self.voxel_pipeline.index_count > 0 {
+            if self.voxel_pipeline.instance_count > 0 {
                 self.voxel_pipeline.draw(&mut rpass_depth);
             }
         }

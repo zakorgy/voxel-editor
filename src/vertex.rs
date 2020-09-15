@@ -10,12 +10,20 @@ pub struct Vertex {
 #[derive(Clone, Copy)]
 pub struct VoxelVertex {
     pub pos: [f32; 3],
-    _col: [f32; 4],
     pub normal: [f32; 3],
+}
+
+#[derive(Clone, Copy)]
+pub struct VoxelInstance {
+    _offset: [f32; 3],
+    _col: [f32; 4],
 }
 
 unsafe impl Pod for Vertex {}
 unsafe impl Zeroable for Vertex {}
+
+unsafe impl Pod for VoxelInstance {}
+unsafe impl Zeroable for VoxelInstance {}
 
 unsafe impl Pod for VoxelVertex {}
 unsafe impl Zeroable for VoxelVertex {}
@@ -31,10 +39,16 @@ pub fn vertex(pos: [f32; 3], col: [f32; 4]) -> Vertex {
     }
 }
 
-pub fn voxel_vertex(pos: [f32; 3], col: [f32; 4], normal: [f32; 3]) -> VoxelVertex {
+pub fn instance(offset: [f32; 3], col: [f32; 4]) -> VoxelInstance {
+    VoxelInstance {
+        _offset: [offset[0], offset[1], offset[2]],
+        _col: col,
+    }
+}
+
+pub fn voxel_vertex(pos: [f32; 3], normal: [f32; 3]) -> VoxelVertex {
     VoxelVertex {
         pos: [pos[0], pos[1], pos[2]],
-        _col: col,
         normal,
     }
 }

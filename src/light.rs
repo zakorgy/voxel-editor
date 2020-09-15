@@ -30,7 +30,7 @@ impl Light {
             near: self.depth.start,
             far: self.depth.end,
         };
-        let ortho_projection = Ortho {
+        let _ortho_projection = Ortho {
             left: -18.0,
             right: 18.0,
             bottom: -18.0,
