@@ -213,11 +213,43 @@ impl VoxelManager {
             for y in 0..self.extent {
                 for z in 0..self.extent {
                     if let Some(desc) = self.boxes[x][y][z] {
-                        instance_data.push(instance([x as f32, y as f32, z as f32], desc.color))
+                        if !self.is_surrounded_voxel(Vector3::new(x, y, z)) {
+                            instance_data.push(instance([x as f32, y as f32, z as f32], desc.color));
+                        }
                     }
                 }
             }
         }
         instance_data
     }
+
+    fn is_surrounded_voxel(&self, pos: Vector3<usize>) -> bool {
+         if (pos.x > 0 && self.boxes[pos.x - 1][pos.y][pos.z].is_none()) || pos.x == 0 {
+            return false;
+         }
+         if (pos.x < (self.extent - 1) && self.boxes[pos.x + 1][pos.y][pos.z].is_none())
+             || (pos.x == self.extent - 1)
+         {
+            return false;
+         }
+
+         if (pos.y > 0 && self.boxes[pos.x][pos.y - 1][pos.z].is_none()) || pos.y == 0 {
+            return false;
+         }
+         if (pos.y < (self.extent - 1) && self.boxes[pos.x][pos.y + 1][pos.z].is_none())
+             || (pos.y == self.extent - 1)
+         {
+            return false;
+         }
+
+         if (pos.z > 0 && self.boxes[pos.x][pos.y][pos.z - 1].is_none()) || pos.z == 0 {
+            return false;
+         }
+         if (pos.z < (self.extent - 1) && self.boxes[pos.x][pos.y][pos.z + 1].is_none())
+             || (pos.z == self.extent - 1)
+         {
+            return false;
+         }
+         true
+     }
 }
