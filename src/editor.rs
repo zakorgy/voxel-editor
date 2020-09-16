@@ -313,8 +313,9 @@ impl Editor {
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
-            if last_fps_instant.elapsed() > time::Duration::from_secs(1) {
-                editor.window.set_title(&format!("Voxel-editor (FPS: {:?})", frame_rendered));
+            let elapsed = last_fps_instant.elapsed();
+            if  elapsed > time::Duration::from_secs(1) {
+                editor.window.set_title(&format!("Voxel-editor (FPS: {:?})", frame_rendered as f32 / elapsed.as_secs() as f32));
                 last_fps_instant = time::Instant::now();
                 frame_rendered = 0;
             }
