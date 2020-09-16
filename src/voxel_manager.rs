@@ -1,5 +1,5 @@
 use crate::geometry::{ray_box_intersection, BoundingBox, Ray};
-use crate::vertex::VoxelVertex;
+use crate::vertex::{VoxelInstance, VoxelVertex, instance};
 use cgmath::Vector3;
 
 #[derive(Copy, Clone)]
@@ -205,5 +205,19 @@ impl VoxelManager {
             }
         }
         (vertex_data, index_data)
+    }
+
+    pub fn instance_data(&self) -> Vec<VoxelInstance> {
+        let mut instance_data = Vec::new();
+        for x in 0..self.extent {
+            for y in 0..self.extent {
+                for z in 0..self.extent {
+                    if let Some(desc) = self.boxes[x][y][z] {
+                        instance_data.push(instance([x as f32, y as f32, z as f32], desc.color))
+                    }
+                }
+            }
+        }
+        instance_data
     }
 }

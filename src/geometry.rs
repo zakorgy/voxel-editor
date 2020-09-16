@@ -301,31 +301,25 @@ impl BoundingBox {
     pub fn voxel_vertices(&self) -> Vec<VoxelVertex> {
         let mut vertex_data = Vec::new();
         let corner_points = self.corner_points();
-        let color = self.color;
-
         // back
         /*0*/
         vertex_data.push(voxel_vertex(
             corner_points[0].into(),
-            color,
             [0.0, 0.0, -1.0],
         ));
         /*1*/
         vertex_data.push(voxel_vertex(
             corner_points[3].into(),
-            color,
             [0.0, 0.0, -1.0],
         ));
         /*2*/
         vertex_data.push(voxel_vertex(
             corner_points[2].into(),
-            color,
             [0.0, 0.0, -1.0],
         ));
         /*3*/
         vertex_data.push(voxel_vertex(
             corner_points[1].into(),
-            color,
             [0.0, 0.0, -1.0],
         ));
 
@@ -333,25 +327,21 @@ impl BoundingBox {
         /*4*/
         vertex_data.push(voxel_vertex(
             corner_points[1].into(),
-            color,
             [0.0, -1.0, 0.0],
         ));
         /*5*/
         vertex_data.push(voxel_vertex(
             corner_points[5].into(),
-            color,
             [0.0, -1.0, 0.0],
         ));
         /*6*/
         vertex_data.push(voxel_vertex(
             corner_points[4].into(),
-            color,
             [0.0, -1.0, 0.0],
         ));
         /*7*/
         vertex_data.push(voxel_vertex(
             corner_points[0].into(),
-            color,
             [0.0, -1.0, 0.0],
         ));
 
@@ -359,25 +349,21 @@ impl BoundingBox {
         /*9*/
         vertex_data.push(voxel_vertex(
             corner_points[2].into(),
-            color,
             [1.0, 0.0, 0.0],
         ));
         /*8*/
         vertex_data.push(voxel_vertex(
             corner_points[6].into(),
-            color,
             [1.0, 0.0, 0.0],
         ));
         /*10*/
         vertex_data.push(voxel_vertex(
             corner_points[5].into(),
-            color,
             [1.0, 0.0, 0.0],
         ));
         /*11*/
         vertex_data.push(voxel_vertex(
             corner_points[1].into(),
-            color,
             [1.0, 0.0, 0.0],
         ));
 
@@ -385,25 +371,21 @@ impl BoundingBox {
         /*12*/
         vertex_data.push(voxel_vertex(
             corner_points[3].into(),
-            color,
             [0.0, 1.0, 0.0],
         ));
         /*13*/
         vertex_data.push(voxel_vertex(
             corner_points[7].into(),
-            color,
             [0.0, 1.0, 0.0],
         ));
         /*14*/
         vertex_data.push(voxel_vertex(
             corner_points[6].into(),
-            color,
             [0.0, 1.0, 0.0],
         ));
         /*15*/
         vertex_data.push(voxel_vertex(
             corner_points[2].into(),
-            color,
             [0.0, 1.0, 0.0],
         ));
 
@@ -411,25 +393,21 @@ impl BoundingBox {
         /*16*/
         vertex_data.push(voxel_vertex(
             corner_points[3].into(),
-            color,
             [-1.0, 0.0, 0.0],
         ));
         /*17*/
         vertex_data.push(voxel_vertex(
             corner_points[0].into(),
-            color,
             [-1.0, 0.0, 0.0],
         ));
         /*18*/
         vertex_data.push(voxel_vertex(
             corner_points[4].into(),
-            color,
             [-1.0, 0.0, 0.0],
         ));
         /*19*/
         vertex_data.push(voxel_vertex(
             corner_points[7].into(),
-            color,
             [-1.0, 0.0, 0.0],
         ));
 
@@ -437,25 +415,21 @@ impl BoundingBox {
         /*20*/
         vertex_data.push(voxel_vertex(
             corner_points[4].into(),
-            color,
             [0.0, 0.0, 1.0],
         ));
         /*21*/
         vertex_data.push(voxel_vertex(
             corner_points[5].into(),
-            color,
             [0.0, 0.0, 1.0],
         ));
         /*22*/
         vertex_data.push(voxel_vertex(
             corner_points[6].into(),
-            color,
             [0.0, 0.0, 1.0],
         ));
         /*23*/
         vertex_data.push(voxel_vertex(
             corner_points[7].into(),
-            color,
             [0.0, 0.0, 1.0],
         ));
 
