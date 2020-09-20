@@ -2,26 +2,38 @@ use crate::geometry::{ray_box_intersection, BoundingBox, Ray};
 use crate::vertex::{VoxelInstance, VoxelVertex, instance};
 use cgmath::Vector3;
 
-#[derive(Copy, Clone)]
-pub struct CubeDescriptor {
-    pub color: [f32; 4],
+#[derive(Copy, Clone, Default)]
+struct CubeDescriptor {
+    color: Option<[f32; 4]>,
+    neighbours: usize,
 }
 
 impl CubeDescriptor {
-    fn new(color: [f32; 4]) -> Self {
-        CubeDescriptor { color }
+    fn incr(&mut self) {
+        self.neighbours += 1;
+        debug_assert!(self.neighbours < 7);
+    }
+
+    fn decr(&mut self) {
+        if self.neighbours > 0 {
+            self.neighbours -= 1;
+        }
+    }
+
+    fn visible(&self) -> bool {
+        self.neighbours != 6
     }
 }
 
 pub struct VoxelManager {
-    pub boxes: Vec<Vec<Vec<Option<CubeDescriptor>>>>,
-    pub extent: usize,
+    boxes: Vec<Vec<Vec<CubeDescriptor>>>,
+    extent: usize,
 }
 
 impl VoxelManager {
     pub fn new(extent: usize) -> Self {
         VoxelManager {
-            boxes: vec![vec![vec![None; extent]; extent]; extent],
+            boxes: vec![vec![vec![Default::default(); extent]; extent]; extent],
             extent,
         }
     }
@@ -35,7 +47,11 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    self.boxes[x][y][z] = Some(CubeDescriptor::new(bbox.color.into()));
+                    if self.boxes[x][y][z].color.replace(bbox.color.into()).is_none() {
+                        for [nx, ny, nz] in self.get_neighbour_indices(x, y, z) {
+                            self.boxes[nx][ny][nz].incr();
+                        }
+                    }
                 }
             }
         }
@@ -50,7 +66,11 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    self.boxes[x][y][z] = None;
+                    if self.boxes[x][y][z].color.take().is_some() {
+                        for [nx, ny, nz] in self.get_neighbour_indices(x, y, z) {
+                            self.boxes[nx][ny][nz].decr();
+                        }
+                    }
                 }
             }
         }
@@ -65,13 +85,46 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    if self.boxes[x][y][z].is_some()
+                    if self.boxes[x][y][z].color.is_some()
                     {
-                        self.boxes[x][y][z] = Some(CubeDescriptor::new(bbox.color.into()));
+                        self.boxes[x][y][z].color = Some(bbox.color.into());
                     }
                 }
             }
         }
+    }
+
+    fn get_neighbour_indices(
+        &self,
+        pos_x: usize,
+        pos_y: usize,
+        pos_z: usize,
+    ) -> Vec<[usize; 3]> {
+        let mut neighbours = Vec::new();
+        let min_x = pos_x.max(1) - 1;
+        let min_y = pos_y.max(1) - 1;
+        let min_z = pos_z.max(1) - 1;
+
+        let max_x = (pos_x + 1).min(self.extent - 1);
+        let max_y = (pos_y + 1).min(self.extent - 1);
+        let max_z = (pos_z + 1).min(self.extent - 1);
+        for x in min_x..=max_x {
+            if x !=pos_x {
+                neighbours.push([x, pos_y, pos_z]);
+            }
+        }
+        for y in min_y..=max_y {
+            if y !=pos_y {
+                neighbours.push([pos_x, y, pos_z]);
+            }
+        }
+        for z in min_z..=max_z {
+            if z != pos_z {
+                neighbours.push([pos_x, pos_y, z]);
+            }
+        }
+        debug_assert!(neighbours.len() < 7, "neighbours {:?}", neighbours.len());
+        neighbours
     }
 
     fn get_neighbour_boxes(
@@ -81,35 +134,10 @@ impl VoxelManager {
         pos_z: usize,
     ) -> Vec<BoundingBox> {
         let mut origins = Vec::new();
-        let min_x = pos_x.max(1) - 1;
-        let min_y = pos_y.max(1) - 1;
-        let min_z = pos_z.max(1) - 1;
-
-        let max_x = (pos_x + 1).min(self.extent - 1);
-        let max_y = (pos_y + 1).min(self.extent - 1);
-        let max_z = (pos_z + 1).min(self.extent - 1);
-        for x in min_x..=max_x {
-            if self.boxes[x][pos_y][pos_z].is_none() {
+        for [nx, ny, nz] in self.get_neighbour_indices(pos_x, pos_y, pos_z) {
+            if self.boxes[nx][ny][nz].color.is_none() {
                 origins.push(BoundingBox::new(
-                    cgmath::Vector3::new(x as f32, pos_y as f32, pos_z as f32),
-                    cgmath::Vector3::new(1.0, 1.0, 1.0),
-                    [1.0; 4],
-                ));
-            }
-        }
-        for y in min_y..=max_y {
-            if self.boxes[pos_x][y][pos_z].is_none() {
-                origins.push(BoundingBox::new(
-                    cgmath::Vector3::new(pos_x as f32, y as f32, pos_z as f32),
-                    cgmath::Vector3::new(1.0, 1.0, 1.0),
-                    [1.0; 4],
-                ));
-            }
-        }
-        for z in min_z..=max_z {
-            if self.boxes[pos_x][pos_y][z].is_none() {
-                origins.push(BoundingBox::new(
-                    cgmath::Vector3::new(pos_x as f32, pos_y as f32, z as f32),
+                    cgmath::Vector3::new(nx as f32, ny as f32, nz as f32),
                     cgmath::Vector3::new(1.0, 1.0, 1.0),
                     [1.0; 4],
                 ));
@@ -130,11 +158,14 @@ impl VoxelManager {
         for x in 0..self.extent {
             for y in 0..self.extent {
                 for z in 0..self.extent {
-                    if let Some(desc) = self.boxes[x][y][z] {
+                    if let Some(color) = self.boxes[x][y][z].color {
+                        if !self.boxes[x][y][z].visible() {
+                            continue;
+                        }
                         bbox = BoundingBox::new(
                             cgmath::Vector3::new(x as f32, y as f32, z as f32),
                             cgmath::Vector3::new(1.0, 1.0, 1.0),
-                            desc.color,
+                            color,
                         );
 
                         if ray_box_intersection(&bbox, ray, &mut distance) {
@@ -142,12 +173,12 @@ impl VoxelManager {
                                 closest_distance = distance.abs();
                                 erase_box = Some(bbox);
                                 if cfg!(feature = "debug_ray") {
-                                    self.boxes[x][y][z] =
-                                        Some(CubeDescriptor::new([0.0, 0.0, 1.0, 1.0]));
+                                    self.boxes[x][y][z].color =
+                                        Some([0.0, 0.0, 1.0, 1.0]);
                                 }
                             }
                         } else if cfg!(feature = "debug_ray") {
-                            self.boxes[x][y][z] = Some(CubeDescriptor::new([0.0, 1.0, 0.0, 0.1]));
+                            self.boxes[x][y][z].color = Some([0.0, 1.0, 0.0, 0.1]);
                         }
                     }
                 }
@@ -181,7 +212,7 @@ impl VoxelManager {
         for x in 0..self.extent {
             for y in 0..self.extent {
                 for z in 0..self.extent {
-                    if let Some(desc) = self.boxes[x][y][z] {
+                    if let Some(color) = self.boxes[x][y][z].color {
                         idx = vertex_data.len() as u32;
                         for i in 0..6 {
                             step = 4 * i;
@@ -197,7 +228,7 @@ impl VoxelManager {
                         bbox = BoundingBox::new(
                             cgmath::Vector3::new(x as f32, y as f32, z as f32),
                             cgmath::Vector3::new(1.0, 1.0, 1.0),
-                            desc.color,
+                            color,
                         );
                         vertex_data.append(&mut bbox.voxel_vertices());
                     }
@@ -212,8 +243,10 @@ impl VoxelManager {
         for x in 0..self.extent {
             for y in 0..self.extent {
                 for z in 0..self.extent {
-                    if let Some(desc) = self.boxes[x][y][z] {
-                        instance_data.push(instance([x as f32, y as f32, z as f32], desc.color))
+                    if let Some(color) = self.boxes[x][y][z].color {
+                        if self.boxes[x][y][z].visible() {
+                            instance_data.push(instance([x as f32, y as f32, z as f32], color));
+                        }
                     }
                 }
             }
