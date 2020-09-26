@@ -12,7 +12,7 @@ pub struct Light {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct LightRaw {
-    pub pos: [f32; 4],
+    pub direction: [f32; 4],
     pub color: [f32; 4],
     pub proj: [[f32; 4]; 4],
 }
@@ -23,7 +23,8 @@ unsafe impl Zeroable for LightRaw {}
 impl Light {
     pub fn to_raw(&self) -> LightRaw {
         use cgmath::{Deg, EuclideanSpace, Matrix4, Ortho, PerspectiveFov, Point3, Vector3};
-        let mx_view = Matrix4::look_at(self.pos, Point3::origin(), Vector3::unit_y());
+        let origin = Point3::origin();
+        let mx_view = Matrix4::look_at(self.pos, origin, Vector3::unit_y());
         let persp_projection = PerspectiveFov {
             fovy: Deg(self.fov).into(),
             aspect: 1.0,
@@ -39,8 +40,9 @@ impl Light {
             far:  self.depth.end,
         };
         let mx_view_proj = cgmath::Matrix4::from(persp_projection) * mx_view;
+        let light_dir = self.pos - origin;
         LightRaw {
-            pos: [self.pos.x, self.pos.y, self.pos.z, 1.0],
+            direction: [light_dir.x, light_dir.y, light_dir.z, 1.0],
             color: [
                 self.color.r as f32,
                 self.color.g as f32,
