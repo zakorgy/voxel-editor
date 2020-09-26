@@ -32,14 +32,14 @@ impl Light {
             far: self.depth.end,
         };
         let _ortho_projection = Ortho {
-            left: -18.0,
-            right: 18.0,
-            bottom: -18.0,
-            top: 18.0,
-            near: self.depth.start,
-            far:  self.depth.end,
+            left: -64.0,
+            right: 64.0,
+            bottom: -64.0,
+            top: 64.0,
+            near: -32.0,
+            far:  96.0
         };
-        let mx_view_proj = cgmath::Matrix4::from(persp_projection) * mx_view;
+        let mx_view_proj = cgmath::Matrix4::from(_ortho_projection) * mx_view;
         let light_dir = self.pos - origin;
         LightRaw {
             direction: [light_dir.x, light_dir.y, light_dir.z, 1.0],
