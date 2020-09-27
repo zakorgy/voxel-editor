@@ -998,7 +998,7 @@ impl Renderer {
             self.lights_are_dirty = false;
             Self::write_buffer(
                 &self.device,
-                bytemuck::bytes_of(&self.light.to_raw()),
+                bytemuck::bytes_of(&self.light.to_raw(self.mesh_count as f32)),
                 &self.light_uniform_buf,
                 &mut self.command_buffers,
             );
