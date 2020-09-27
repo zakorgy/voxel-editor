@@ -20,7 +20,7 @@ layout(set = 0, binding = 0) uniform UBO {
 } ubo;
 
 layout(set = 0, binding = 1) uniform LightUBO {
-    vec4 pos;
+    vec4 direction;
     vec4 color;
     mat4 projection;
 } light;
@@ -33,7 +33,7 @@ void main() {
     fragColor = inColor;
     fragNormal = mat3(ubo.model) * inNormal;
     fragViewVec = (ubo.view * worldPos).xyz;
-    fragLightVec = (light.pos - worldPos).xyz;
+    fragLightVec = light.direction.xyz;
     vertPos = pos;
     fragLightProj = light.projection;
 }

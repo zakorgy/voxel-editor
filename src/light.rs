@@ -1,9 +1,9 @@
 use bytemuck::{Pod, Zeroable};
-use cgmath;
+use cgmath::{EuclideanSpace, Matrix4, Ortho, Point3, Vector3};
 use iced_wgpu::wgpu;
 
 pub struct Light {
-    pub pos: cgmath::Point3<f32>,
+    pub pos: Point3<f32>,
     pub color: wgpu::Color,
     pub fov: f32,
     pub depth: std::ops::Range<f32>,
@@ -12,7 +12,7 @@ pub struct Light {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct LightRaw {
-    pub pos: [f32; 4],
+    pub direction: [f32; 4],
     pub color: [f32; 4],
     pub proj: [[f32; 4]; 4],
 }
@@ -21,26 +21,21 @@ unsafe impl Pod for LightRaw {}
 unsafe impl Zeroable for LightRaw {}
 
 impl Light {
-    pub fn to_raw(&self) -> LightRaw {
-        use cgmath::{Deg, EuclideanSpace, Matrix4, Ortho, PerspectiveFov, Point3, Vector3};
-        let mx_view = Matrix4::look_at(self.pos, Point3::origin(), Vector3::unit_y());
-        let persp_projection = PerspectiveFov {
-            fovy: Deg(self.fov).into(),
-            aspect: 1.0,
-            near: self.depth.start,
-            far: self.depth.end,
+    pub fn to_raw(&self, mesh_count: f32) -> LightRaw {
+        let origin = Point3::origin();
+        let mx_view = Matrix4::look_at(self.pos, origin, Vector3::unit_y());
+        let ortho_projection = Ortho {
+            left: -mesh_count,
+            right: mesh_count,
+            bottom: -mesh_count,
+            top: mesh_count,
+            near: -mesh_count,
+            far:  3.0 * mesh_count,
         };
-        let _ortho_projection = Ortho {
-            left: -18.0,
-            right: 18.0,
-            bottom: -18.0,
-            top: 18.0,
-            near: self.depth.start,
-            far:  self.depth.end,
-        };
-        let mx_view_proj = cgmath::Matrix4::from(persp_projection) * mx_view;
+        let mx_view_proj = cgmath::Matrix4::from(ortho_projection) * mx_view;
+        let light_dir = self.pos - origin;
         LightRaw {
-            pos: [self.pos.x, self.pos.y, self.pos.z, 1.0],
+            direction: [light_dir.x, light_dir.y, light_dir.z, 1.0],
             color: [
                 self.color.r as f32,
                 self.color.g as f32,

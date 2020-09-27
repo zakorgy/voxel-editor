@@ -714,9 +714,9 @@ impl Renderer {
             mesh_count,
             light: Light {
                 pos: cgmath::Point3::new(
-                    DEFAULT_MESH_COUNT as f32 + 2.0,
-                    DEFAULT_MESH_COUNT as f32 + 2.0,
-                    DEFAULT_MESH_COUNT as f32 + 2.0,
+                    (DEFAULT_MESH_COUNT / 2) as f32,
+                    DEFAULT_MESH_COUNT as f32 * 1.5,
+                    DEFAULT_MESH_COUNT as f32 * 2.0,
                 ),
                 color: wgpu::Color {
                     r: 1.0,
@@ -724,8 +724,8 @@ impl Renderer {
                     b: 1.0,
                     a: 1.0,
                 },
-                fov: 120.0,
-                depth: 0.1..2.0 * mesh_count as f32,
+                fov: 90.0,
+                depth: 0.1..3.0 * mesh_count as f32,
             },
             light_uniform_buf,
             shadow_view,
@@ -998,7 +998,7 @@ impl Renderer {
             self.lights_are_dirty = false;
             Self::write_buffer(
                 &self.device,
-                bytemuck::bytes_of(&self.light.to_raw()),
+                bytemuck::bytes_of(&self.light.to_raw(self.mesh_count as f32)),
                 &self.light_uniform_buf,
                 &mut self.command_buffers,
             );
