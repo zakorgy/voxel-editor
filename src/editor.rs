@@ -340,6 +340,7 @@ impl Editor {
                 } => {
                     log::info!("Resizing to {:?}", size);
                     editor.resize(size);
+                    editor.ui = Ui::new(&editor.window, &mut editor.renderer.device)
                 }
                 event::Event::WindowEvent { event, .. } => {
                     match event {
