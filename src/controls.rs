@@ -10,7 +10,7 @@ use iced_winit::{
 
 use std::cell::Cell;
 
-pub const COLOR_SIZE: f32 = 30.0;
+pub const COLOR_SIZE: f32 = 20.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditOp {
@@ -39,50 +39,55 @@ pub enum Message {
 #[derive(Default)]
 struct ColorPicker {
     canvas_cache: canvas::Cache,
+    colors: Vec<Color>,
 }
 
 impl ColorPicker {
-    pub const COLORS: [Color; 8] = [
-        Color::WHITE,
-        Color::BLACK,
-        Color {
-            r: 1.0,
-            g: 0.0,
-            b: 0.0,
-            a: 1.0,
-        },
-        Color {
-            r: 0.0,
-            g: 1.0,
-            b: 0.0,
-            a: 1.0,
-        },
-        Color {
-            r: 0.0,
-            g: 0.0,
-            b: 1.0,
-            a: 1.0,
-        },
-        Color {
-            r: 1.0,
-            g: 0.0,
-            b: 1.0,
-            a: 1.0,
-        },
-        Color {
-            r: 1.0,
-            g: 1.0,
-            b: 0.0,
-            a: 1.0,
-        },
-        Color {
-            r: 0.0,
-            g: 1.0,
-            b: 1.0,
-            a: 1.0,
-        },
-    ];
-    pub const COLORS_PER_LINE: usize = 4;
+    pub const COLORS_PER_LINE: usize = 6;
+    fn new() -> Self {
+        let colors = vec![
+            // red
+            Color::new(1.0, 0.0, 0.0, 1.0),
+            // orange
+            Color::new(1.0, 165.0 / 255.0, 0.0, 1.0),
+            // orange red
+            Color::new(1.0, 69.0 / 255.0, 0.0, 1.0),
+            // yellow
+            Color::new(1.0, 1.0, 0.0, 1.0),
+            // brown
+            Color::new(139.0 / 255.0, 69.0 / 255.0, 19.0 / 255.0, 1.0),
+            // purple
+            Color::new(0.5, 0.0, 0.5, 1.0),
+            // magenta
+            Color::new(1.0, 0.0, 1.0, 1.0),
+            // violet
+            Color::new(148.0 / 255.0, 0.0, 211.0 / 255.0, 1.0),
+            // blue
+            Color::new(0.0, 0.0, 1.0, 1.0),
+            // deep sky blue
+            Color::new(0.0, 191.0 / 255.0, 1.0, 1.0),
+            // aqua marine
+            Color::new(127.0 / 252.0, 1.0, 212.0 / 252.0, 1.0),
+            // cyan
+            Color::new(0.0, 1.0, 1.0, 1.0),
+            // green
+            Color::new(0.0, 1.0, 0.0, 1.0),
+            // chartreuse
+            Color::new(0.5, 1.0, 0.0, 1.0),
+            // white
+            Color::new(1.0, 1.0, 1.0, 1.0),
+            // silver
+            Color::new(192.0 / 255.0, 192.0 / 255.0, 192.0 / 255.0, 1.0),
+            // gray
+            Color::new(0.5, 0.5, 0.5, 1.0),
+            // black
+            Color::new(0.02, 0.02, 0.02, 1.0),
+        ];
+        ColorPicker {
+            canvas_cache: canvas::Cache::default(),
+            colors,
+        }
+    }
 
     fn draw(&self, frame: &mut canvas::Frame) {
         let box_size = Size {
@@ -90,7 +95,7 @@ impl ColorPicker {
             height: COLOR_SIZE,
         };
 
-        for (i, color) in Self::COLORS.iter().enumerate() {
+        for (i, color) in self.colors.iter().enumerate() {
             let anchor = Point {
                 x: (i % Self::COLORS_PER_LINE) as f32 * COLOR_SIZE,
                 y: (i / Self::COLORS_PER_LINE) as f32 * COLOR_SIZE,
@@ -100,13 +105,14 @@ impl ColorPicker {
     }
 
     pub fn view(&mut self) -> Element<Message, Renderer> {
+        let number_of_colors = self.colors.len() as f32;
+        let height =
+            (number_of_colors / Self::COLORS_PER_LINE as f32).ceil() as u16 * COLOR_SIZE as u16;
         canvas::Canvas::new(self)
             .width(Length::Units(
                 Self::COLORS_PER_LINE as u16 * COLOR_SIZE as u16,
             ))
-            .height(Length::Units(
-                Self::COLORS.len() as u16 / Self::COLORS_PER_LINE as u16 * COLOR_SIZE as u16,
-            ))
+            .height(Length::Units(height))
             .into()
     }
 }
@@ -125,12 +131,18 @@ impl PickedColor {
         }
     }
     fn draw(&self, frame: &mut canvas::Frame) {
-        let box_size = Size {
+        let box_size_black = Size {
             width: COLOR_SIZE,
             height: COLOR_SIZE,
         };
 
-        frame.fill_rectangle(Point { x: 0.0, y: 0.0 }, box_size, self.color);
+        let box_size = Size {
+            width: COLOR_SIZE - 4.0,
+            height: COLOR_SIZE - 4.0,
+        };
+
+        frame.fill_rectangle(Point { x: 0.0, y: 0.0 }, box_size_black, Color::BLACK);
+        frame.fill_rectangle(Point { x: 2.0, y: 2.0 }, box_size, self.color);
     }
 
     pub fn view(&mut self) -> Element<Message, Renderer> {
@@ -154,8 +166,8 @@ impl Controls {
         Controls {
             edit_op: Cell::new(EditOp::default()),
             export_button: button::State::default(),
-            color_picker: ColorPicker::default(),
-            picked_color: PickedColor::new(Color::BLACK),
+            color_picker: ColorPicker::new(),
+            picked_color: PickedColor::new(Color::new(0.02, 0.02, 0.02, 1.0)),
             save_file: Cell::new(None),
         }
     }
@@ -232,7 +244,7 @@ impl Program for Controls {
 
         Container::new(edit_bar)
             .width(Length::Units(150))
-            .height(Length::Units(400))
+            .height(Length::Fill)
             .padding(10)
             .style(UiStyle {})
             .into()
@@ -258,12 +270,16 @@ impl canvas::Program<Message> for ColorPicker {
             canvas::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 if let Some(pos) = cursor.position() {
                     let (x_dist, y_dist) = (pos.x - bounds.x, pos.y - bounds.y);
-                    if x_dist.is_sign_positive() && y_dist.is_sign_positive() {
+                    if x_dist.is_sign_positive()
+                        && y_dist.is_sign_positive()
+                        && x_dist < bounds.width
+                        && y_dist < bounds.height
+                    {
                         let x_pos = x_dist as usize / COLOR_SIZE as usize;
                         let y_pos = y_dist as usize / COLOR_SIZE as usize;
                         let idx = y_pos * Self::COLORS_PER_LINE + x_pos;
-                        if idx < Self::COLORS.len() {
-                            return Some(Message::ColorPicked(Self::COLORS[idx]));
+                        if idx < self.colors.len() {
+                            return Some(Message::ColorPicked(self.colors[idx]));
                         }
                     }
                 }
