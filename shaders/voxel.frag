@@ -34,6 +34,36 @@ float ShadowCalculation(vec4 fragPosLightSpace)
     return shadow;
 }
 
+float ShadowCalculationPcf(vec4 fragPosLightSpace)
+{
+    const vec2 flip_correction = vec2(0.5, -0.5);
+    // compute texture coordinates for shadow lookup
+    vec3 projCoords =
+      vec3(fragPosLightSpace.xy * flip_correction / fragPosLightSpace.w + 0.5,
+           fragPosLightSpace.z / fragPosLightSpace.w);
+
+     if (projCoords.z > 1.0) {
+        return 0.0;
+     }
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+
+    float shadow = 0.0;
+    float bias = 0.002;
+    vec2 texelSize = 1.0 / textureSize(sampler2D(t_Shadow, s_Shadow), 0);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(sampler2D(t_Shadow, s_Shadow), projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+        }
+    }
+    shadow /= 18.0;
+
+    return shadow;
+}
+
 void main() {
   vec3 N = normalize(fragNormal);
   vec3 L = normalize(fragLightVec);
@@ -44,7 +74,7 @@ void main() {
   vec3 diffuse = fragColor.xyz * max(dot(N, L), 0.0);
   //vec3 specular = pow(max(dot(R, V), 0.0), 16.0) * vec3(1.35);
   vec4 FragPosLightSpace = fragLightProj * vertPos;
-  float shadow = ShadowCalculation(FragPosLightSpace);
+  float shadow = ShadowCalculationPcf(FragPosLightSpace);
   vec3 lighting = (ambient + (1.0 - shadow) * (diffuse /*+ specular*/));
 
   outColor = vec4(lighting, fragColor.z);
