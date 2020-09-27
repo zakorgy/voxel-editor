@@ -1,7 +1,14 @@
 [package]
 name = "voxel-editor"
 version = "0.1.0"
-authors = ["Zakor <gyula.zakor@h-lab.eu>"]
+authors = ["Gyula Zakor <zakorgy@inf.u-szeged.hu>"]
+license = "Apache-2.0"
+description = "A voxel editor tool"
+readme = "README.md"
+homepage = "https://github.com/zakorgy/voxel-editor"
+repository = "https://github.com/zakorgy/voxel-editor"
+keywords = ["editor", "voxel", "webgpu"]
+categories = ["graphics","games","rendering"]
 edition = "2018"
 
 [dependencies.camera_controllers]
