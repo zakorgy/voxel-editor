@@ -4,7 +4,7 @@ use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 pub const EPSYLON: f32 = 0.000001;
 
 pub struct Plane {
-    pub point: Vector3<f32>,
+    point: Vector3<f32>,
     pub normal: Vector3<f32>,
     pub left: Vector3<f32>,
     pub down: Vector3<f32>,
@@ -91,7 +91,7 @@ pub const XZ_PLANE: Plane = Plane {
 pub struct Ray {
     pub origin: Vector3<f32>,
     pub end: Vector3<f32>,
-    pub vector: Vector3<f32>,
+    vector: Vector3<f32>,
 }
 
 impl Ray {

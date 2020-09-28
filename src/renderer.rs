@@ -1,5 +1,5 @@
 use crate::camera::CameraWrapper;
-use crate::color::HALF_ALPHA_RED;
+use crate::color::*;
 use crate::geometry::*;
 use crate::light::*;
 use crate::ui::{build_ui_pipeline, Ui};
@@ -76,12 +76,11 @@ impl Pipeline {
 }
 
 pub struct Renderer {
-    pub camera: CameraWrapper,
     surface: wgpu::Surface,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
-    pub swap_chain: wgpu::SwapChain,
+    swap_chain: wgpu::SwapChain,
     depth_buffer: wgpu::TextureView,
     multisampled_framebuffer: wgpu::TextureView,
     mvp_buf: wgpu::Buffer,
@@ -96,8 +95,7 @@ pub struct Renderer {
     ui_pipeline: wgpu::RenderPipeline,
     cursor_cube: BoundingBox,
     draw_cube: Option<BoundingBox>,
-    pub mesh_count: u16,
-    pub voxel_manager: VoxelManager,
+    mesh_count: u16,
     light: Light,
     lights_are_dirty: bool,
 }
@@ -110,6 +108,7 @@ impl Renderer {
         sc_desc: wgpu::SwapChainDescriptor,
         swap_chain: wgpu::SwapChain,
         mesh_count: u16,
+        camera: &mut CameraWrapper,
     ) -> Self {
         use std::mem;
 
@@ -141,11 +140,6 @@ impl Renderer {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&bind_group_layout],
         });
-
-        let mut camera = CameraWrapper::new(
-            sc_desc.width as f32 / sc_desc.height as f32,
-            mesh_count as f32,
-        );
 
         let matrices = camera.mvp_matrices(sc_desc.width as f32 / sc_desc.height as f32);
         let matrices_ref = matrices.as_ref();
@@ -351,9 +345,11 @@ impl Renderer {
 
         let vertices = origin_cube.voxel_vertices();
 
-        let vertex_buf_voxel = Rc::new(device.create_buffer_with_data(
-            bytemuck::cast_slice(&vertices),
-            wgpu::BufferUsage::VERTEX));
+        let vertex_buf_voxel =
+            Rc::new(device.create_buffer_with_data(
+                bytemuck::cast_slice(&vertices),
+                wgpu::BufferUsage::VERTEX,
+            ));
 
         let instance_buf_voxel = Rc::new(device.create_buffer(&wgpu::BufferDescriptor {
             label: None,
@@ -505,42 +501,44 @@ impl Renderer {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &[
-                        // Position
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float3,
-                            offset: 0,
-                            shader_location: 0,
-                        },
-                        // Normal
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float3,
-                            offset: 3 * 4,
-                            shader_location: 1,
-                        },
-                    ],
-                },
-                wgpu::VertexBufferDescriptor {
-                    stride: mem::size_of::<VoxelInstance>() as wgpu::BufferAddress,
-                    step_mode: wgpu::InputStepMode::Instance,
-                    attributes: &[
-                        // Offset
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float3,
-                            offset: 0,
-                            shader_location: 2,
-                        },
-                        // Color
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float4,
-                            offset: 3 * 4,
-                            shader_location: 3,
-                        },
-                    ],
-                }],
+                vertex_buffers: &[
+                    wgpu::VertexBufferDescriptor {
+                        stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
+                        step_mode: wgpu::InputStepMode::Vertex,
+                        attributes: &[
+                            // Position
+                            wgpu::VertexAttributeDescriptor {
+                                format: wgpu::VertexFormat::Float3,
+                                offset: 0,
+                                shader_location: 0,
+                            },
+                            // Normal
+                            wgpu::VertexAttributeDescriptor {
+                                format: wgpu::VertexFormat::Float3,
+                                offset: 3 * 4,
+                                shader_location: 1,
+                            },
+                        ],
+                    },
+                    wgpu::VertexBufferDescriptor {
+                        stride: mem::size_of::<VoxelInstance>() as wgpu::BufferAddress,
+                        step_mode: wgpu::InputStepMode::Instance,
+                        attributes: &[
+                            // Offset
+                            wgpu::VertexAttributeDescriptor {
+                                format: wgpu::VertexFormat::Float3,
+                                offset: 0,
+                                shader_location: 2,
+                            },
+                            // Color
+                            wgpu::VertexAttributeDescriptor {
+                                format: wgpu::VertexFormat::Float4,
+                                offset: 3 * 4,
+                                shader_location: 3,
+                            },
+                        ],
+                    },
+                ],
             },
             sample_count: SAMPLE_COUNT,
             sample_mask: !0,
@@ -614,30 +612,32 @@ impl Renderer {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint16,
-                vertex_buffers: &[wgpu::VertexBufferDescriptor {
-                    stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::InputStepMode::Vertex,
-                    attributes: &[
-                        // Position
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float3,
-                            offset: 0,
-                            shader_location: 0,
-                        },
-                    ],
-                },
-                wgpu::VertexBufferDescriptor {
-                    stride: mem::size_of::<VoxelInstance>() as wgpu::BufferAddress,
-                    step_mode: wgpu::InputStepMode::Instance,
-                    attributes: &[
-                        // Offset
-                        wgpu::VertexAttributeDescriptor {
-                            format: wgpu::VertexFormat::Float3,
-                            offset: 0,
-                            shader_location: 1,
-                        },
-                    ],
-                }],
+                vertex_buffers: &[
+                    wgpu::VertexBufferDescriptor {
+                        stride: mem::size_of::<VoxelVertex>() as wgpu::BufferAddress,
+                        step_mode: wgpu::InputStepMode::Vertex,
+                        attributes: &[
+                            // Position
+                            wgpu::VertexAttributeDescriptor {
+                                format: wgpu::VertexFormat::Float3,
+                                offset: 0,
+                                shader_location: 0,
+                            },
+                        ],
+                    },
+                    wgpu::VertexBufferDescriptor {
+                        stride: mem::size_of::<VoxelInstance>() as wgpu::BufferAddress,
+                        step_mode: wgpu::InputStepMode::Instance,
+                        attributes: &[
+                            // Offset
+                            wgpu::VertexAttributeDescriptor {
+                                format: wgpu::VertexFormat::Float3,
+                                offset: 0,
+                                shader_location: 1,
+                            },
+                        ],
+                    },
+                ],
             },
             sample_count: 1,
             sample_mask: !0,
@@ -668,7 +668,6 @@ impl Renderer {
             sc_desc,
             swap_chain,
             depth_buffer,
-            camera,
             mesh_pipeline: Pipeline {
                 pipeline: mesh_pipeline,
                 bind_group: mesh_bind_group,
@@ -710,23 +709,20 @@ impl Renderer {
             render_cursor: true,
             mvp_buf: uniform_buf,
             multisampled_framebuffer,
-            voxel_manager: VoxelManager::new(mesh_count as usize),
             mesh_count,
-            light: Light {
-                pos: cgmath::Point3::new(
+            light: Light::new(
+                cgmath::Point3::new(
                     (DEFAULT_MESH_COUNT / 2) as f32,
                     DEFAULT_MESH_COUNT as f32 * 1.5,
                     DEFAULT_MESH_COUNT as f32 * 2.0,
                 ),
-                color: wgpu::Color {
+                wgpu::Color {
                     r: 1.0,
                     g: 1.0,
                     b: 1.0,
                     a: 1.0,
                 },
-                fov: 90.0,
-                depth: 0.1..3.0 * mesh_count as f32,
-            },
+            ),
             light_uniform_buf,
             shadow_view,
             lights_are_dirty: true,
@@ -735,24 +731,15 @@ impl Renderer {
         }
     }
 
-    pub fn get_model_data(&self) -> (Vec<VoxelVertex>, Vec<u32>) {
-        self.voxel_manager.vertices()
-    }
-
-    pub fn update_view(&mut self, event: winit::event::WindowEvent) {
-        let viewport_changed = self.camera.update(&event);
-        if viewport_changed {
-            let matrices = self
-                .camera
-                .mvp_matrices(self.sc_desc.width as f32 / self.sc_desc.height as f32);
-            let matrices_ref = matrices.as_ref();
-            Self::write_buffer(
-                &self.device,
-                bytemuck::cast_slice(matrices_ref),
-                &self.mvp_buf,
-                &mut self.command_buffers,
-            );
-        }
+    pub fn update_view(&mut self, camera: &mut CameraWrapper) {
+        let matrices = camera.mvp_matrices(self.sc_desc.width as f32 / self.sc_desc.height as f32);
+        let matrices_ref = matrices.as_ref();
+        Self::write_buffer(
+            &self.device,
+            bytemuck::cast_slice(matrices_ref),
+            &self.mvp_buf,
+            &mut self.command_buffers,
+        );
     }
 
     fn get_grid_pos(world_pos: cgmath::Vector3<f32>) -> cgmath::Vector3<f32> {
@@ -832,12 +819,12 @@ impl Renderer {
         self.render_cursor = true;
     }
 
-    pub fn draw_rectangle(&mut self, color: [f32; 4]) {
+    pub fn draw_rectangle(&mut self, color: [f32; 4], voxel_manager: &mut VoxelManager) {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
             cube.color = color;
-            self.voxel_manager.add_box(cube);
-            let instance_data = self.voxel_manager.instance_data();
+            voxel_manager.add_box(cube);
+            let instance_data = voxel_manager.instance_data();
             Self::write_buffer(
                 &self.device,
                 bytemuck::cast_slice(&instance_data),
@@ -849,12 +836,12 @@ impl Renderer {
         }
     }
 
-    pub fn fill_rectangle(&mut self, color: [f32; 4]) {
+    pub fn fill_rectangle(&mut self, color: [f32; 4], voxel_manager: &mut VoxelManager) {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
             cube.color = color;
-            self.voxel_manager.refill(cube);
-            let instance_data = self.voxel_manager.instance_data();
+            voxel_manager.refill(cube);
+            let instance_data = voxel_manager.instance_data();
             if instance_data.len() > 0 {
                 Self::write_buffer(
                     &self.device,
@@ -869,8 +856,8 @@ impl Renderer {
     }
 
     #[cfg(feature = "debug_ray")]
-    pub fn debug_update(&mut self) {
-        let instance_data = self.voxel_manager.instance_data();
+    pub fn debug_update(&mut self, voxel_manager: &VoxelManager) {
+        let instance_data = voxel_manager.instance_data();
         if instance_data.len() == 0 {
             return;
         }
@@ -882,11 +869,11 @@ impl Renderer {
         );
     }
 
-    pub fn erase_rectangle(&mut self) {
+    pub fn erase_rectangle(&mut self, voxel_manager: &mut VoxelManager) {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
-            self.voxel_manager.erase_box(cube);
-            let instance_data = self.voxel_manager.instance_data();
+            voxel_manager.erase_box(cube);
+            let instance_data = voxel_manager.instance_data();
             if instance_data.len() > 0 {
                 Self::write_buffer(
                     &self.device,
@@ -934,13 +921,11 @@ impl Renderer {
         );
     }
 
-    pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
+    pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>, camera: &mut CameraWrapper) {
         self.sc_desc.width = size.width;
         self.sc_desc.height = size.height;
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
-        let matrices = self
-            .camera
-            .mvp_matrices(self.sc_desc.width as f32 / self.sc_desc.height as f32);
+        let matrices = camera.mvp_matrices(self.sc_desc.width as f32 / self.sc_desc.height as f32);
         let matrices_ref = matrices.as_ref();
         Self::write_buffer(
             &self.device,
@@ -980,9 +965,14 @@ impl Renderer {
         command_buffers.push(command_buf);
     }
 
-    pub fn render(&mut self, ui: &mut Ui) -> Interaction {
+    pub fn render(
+        &mut self,
+        ui: &mut Ui,
         #[cfg(feature = "debug_ray")]
-        self.debug_update();
+        voxel_manager: &mut VoxelManager
+    ) -> Interaction {
+        #[cfg(feature = "debug_ray")]
+        self.debug_update(voxel_manager);
 
         let frame = match self.swap_chain.get_next_texture() {
             Ok(frame) => frame,
@@ -1088,5 +1078,9 @@ impl Renderer {
         command_buffers.push(encoder.finish());
         self.queue.submit(&command_buffers);
         mouse_interaction
+    }
+
+    pub fn device_mut(&mut self) -> &mut wgpu::Device {
+        &mut self.device
     }
 }

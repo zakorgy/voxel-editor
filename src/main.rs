@@ -12,7 +12,7 @@ mod voxel_manager;
 use editor::Editor;
 use winit::event_loop::EventLoop;
 
-pub fn run(title: &str) {
+fn run(title: &str) {
     let event_loop = EventLoop::new();
     let mut builder = winit::window::WindowBuilder::new();
     builder = builder
