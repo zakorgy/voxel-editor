@@ -1,5 +1,5 @@
 use crate::geometry::{ray_box_intersection, BoundingBox, Ray};
-use crate::vertex::{VoxelInstance, VoxelVertex, instance};
+use crate::vertex::{instance, VoxelInstance, VoxelVertex};
 use cgmath::Vector3;
 
 #[derive(Copy, Clone, Default)]
@@ -47,7 +47,11 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    if self.boxes[x][y][z].color.replace(bbox.color.into()).is_none() {
+                    if self.boxes[x][y][z]
+                        .color
+                        .replace(bbox.color.into())
+                        .is_none()
+                    {
                         for [nx, ny, nz] in self.get_neighbour_indices(x, y, z) {
                             self.boxes[nx][ny][nz].incr();
                         }
@@ -85,8 +89,7 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    if self.boxes[x][y][z].color.is_some()
-                    {
+                    if self.boxes[x][y][z].color.is_some() {
                         self.boxes[x][y][z].color = Some(bbox.color.into());
                     }
                 }
@@ -94,12 +97,7 @@ impl VoxelManager {
         }
     }
 
-    fn get_neighbour_indices(
-        &self,
-        pos_x: usize,
-        pos_y: usize,
-        pos_z: usize,
-    ) -> Vec<[usize; 3]> {
+    fn get_neighbour_indices(&self, pos_x: usize, pos_y: usize, pos_z: usize) -> Vec<[usize; 3]> {
         let mut neighbours = Vec::new();
         let min_x = pos_x.max(1) - 1;
         let min_y = pos_y.max(1) - 1;
@@ -109,12 +107,12 @@ impl VoxelManager {
         let max_y = (pos_y + 1).min(self.extent - 1);
         let max_z = (pos_z + 1).min(self.extent - 1);
         for x in min_x..=max_x {
-            if x !=pos_x {
+            if x != pos_x {
                 neighbours.push([x, pos_y, pos_z]);
             }
         }
         for y in min_y..=max_y {
-            if y !=pos_y {
+            if y != pos_y {
                 neighbours.push([pos_x, y, pos_z]);
             }
         }
@@ -146,7 +144,7 @@ impl VoxelManager {
         origins
     }
 
-    pub fn get_intersection_box(
+    pub fn get_intersection_boxes(
         &mut self,
         ray: &Ray,
     ) -> (Option<BoundingBox>, Option<BoundingBox>) {
@@ -173,8 +171,7 @@ impl VoxelManager {
                                 closest_distance = distance.abs();
                                 erase_box = Some(bbox);
                                 if cfg!(feature = "debug_ray") {
-                                    self.boxes[x][y][z].color =
-                                        Some([0.0, 0.0, 1.0, 1.0]);
+                                    self.boxes[x][y][z].color = Some([0.0, 0.0, 1.0, 1.0]);
                                 }
                             }
                         } else if cfg!(feature = "debug_ray") {

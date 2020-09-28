@@ -4,7 +4,7 @@ use winit::event;
 
 pub struct CameraWrapper {
     /// Orbiting camera implementation
-    pub camera: OrbitZoomCamera<f32>,
+    camera: OrbitZoomCamera<f32>,
 
     /// Perpective camera setting
     cam_persp: CameraPerspective<f32>,
