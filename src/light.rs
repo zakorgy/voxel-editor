@@ -9,10 +9,7 @@ pub struct Light {
 
 impl Light {
     pub fn new(pos: Point3<f32>, color: wgpu::Color) -> Self {
-        Light {
-            pos,
-            color,
-        }
+        Light { pos, color }
     }
 }
 
@@ -37,7 +34,7 @@ impl Light {
             bottom: -mesh_count,
             top: mesh_count,
             near: -mesh_count,
-            far:  3.0 * mesh_count,
+            far: 3.0 * mesh_count,
         };
         let mx_view_proj = cgmath::Matrix4::from(ortho_projection) * mx_view;
         let light_dir = self.pos - origin;

@@ -1,3 +1,4 @@
+use crate::camera::CameraWrapper;
 use crate::vertex::*;
 use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 
@@ -114,29 +115,56 @@ impl Ray {
         }
         None
     }
-}
 
-pub fn unproject(
-    winx: f32,
-    winy: f32,
-    winz: f32,
-    model_view: Matrix4<f32>,
-    projection: Matrix4<f32>,
-    window_size: winit::dpi::PhysicalSize<u32>,
-) -> Vector3<f32> {
-    let matrix = (projection * model_view).inverse_transform().unwrap();
+    pub fn unproject(
+        winx: f32,
+        winy: f32,
+        winz: f32,
+        model_view: Matrix4<f32>,
+        projection: Matrix4<f32>,
+        window_size: winit::dpi::PhysicalSize<u32>,
+    ) -> Vector3<f32> {
+        let matrix = (projection * model_view).inverse_transform().unwrap();
+        let in_vec = Vector4::new(
+            (winx / window_size.width as f32) * 2.0 - 1.0,
+            ((window_size.height as f32 - winy) / window_size.height as f32) * 2.0 - 1.0,
+            winz,
+            1.0,
+        );
+        let mut out = matrix * in_vec;
+        out.w = 1.0 / out.w;
+        Vector3::new(out.x * out.w, out.y * out.w, out.z * out.w)
+    }
 
-    let in_vec = Vector4::new(
-        (winx / window_size.width as f32) * 2.0 - 1.0,
-        ((window_size.height as f32 - winy) / window_size.height as f32) * 2.0 - 1.0,
-        winz,
-        1.0,
-    );
+    pub fn from_cursor(
+        &mut self,
+        posx: f32,
+        posy: f32,
+        camera: &CameraWrapper,
+        window_size: winit::dpi::PhysicalSize<u32>,
+    ) {
+        let mv_matrix = camera.model_view_mat();
+        let proj_matrix = camera.projection_mat();
 
-    let mut out = matrix * in_vec;
-    out.w = 1.0 / out.w;
+        let origin = Self::unproject(
+            posx as f32,
+            posy as f32,
+            0.1 as f32,
+            mv_matrix,
+            proj_matrix,
+            window_size,
+        );
 
-    Vector3::new(out.x * out.w, out.y * out.w, out.z * out.w)
+        let end = Self::unproject(
+            posx as f32,
+            posy as f32,
+            1.0 as f32,
+            mv_matrix,
+            proj_matrix,
+            window_size,
+        );
+        *self = Ray::new(origin, end);
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -303,135 +331,63 @@ impl BoundingBox {
         let corner_points = self.corner_points();
         // back
         /*0*/
-        vertex_data.push(voxel_vertex(
-            corner_points[0].into(),
-            [0.0, 0.0, -1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[0].into(), [0.0, 0.0, -1.0]));
         /*1*/
-        vertex_data.push(voxel_vertex(
-            corner_points[3].into(),
-            [0.0, 0.0, -1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[3].into(), [0.0, 0.0, -1.0]));
         /*2*/
-        vertex_data.push(voxel_vertex(
-            corner_points[2].into(),
-            [0.0, 0.0, -1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[2].into(), [0.0, 0.0, -1.0]));
         /*3*/
-        vertex_data.push(voxel_vertex(
-            corner_points[1].into(),
-            [0.0, 0.0, -1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[1].into(), [0.0, 0.0, -1.0]));
 
         // bottom
         /*4*/
-        vertex_data.push(voxel_vertex(
-            corner_points[1].into(),
-            [0.0, -1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[1].into(), [0.0, -1.0, 0.0]));
         /*5*/
-        vertex_data.push(voxel_vertex(
-            corner_points[5].into(),
-            [0.0, -1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[5].into(), [0.0, -1.0, 0.0]));
         /*6*/
-        vertex_data.push(voxel_vertex(
-            corner_points[4].into(),
-            [0.0, -1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[4].into(), [0.0, -1.0, 0.0]));
         /*7*/
-        vertex_data.push(voxel_vertex(
-            corner_points[0].into(),
-            [0.0, -1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[0].into(), [0.0, -1.0, 0.0]));
 
         // right
         /*9*/
-        vertex_data.push(voxel_vertex(
-            corner_points[2].into(),
-            [1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[2].into(), [1.0, 0.0, 0.0]));
         /*8*/
-        vertex_data.push(voxel_vertex(
-            corner_points[6].into(),
-            [1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[6].into(), [1.0, 0.0, 0.0]));
         /*10*/
-        vertex_data.push(voxel_vertex(
-            corner_points[5].into(),
-            [1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[5].into(), [1.0, 0.0, 0.0]));
         /*11*/
-        vertex_data.push(voxel_vertex(
-            corner_points[1].into(),
-            [1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[1].into(), [1.0, 0.0, 0.0]));
 
         // top
         /*12*/
-        vertex_data.push(voxel_vertex(
-            corner_points[3].into(),
-            [0.0, 1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[3].into(), [0.0, 1.0, 0.0]));
         /*13*/
-        vertex_data.push(voxel_vertex(
-            corner_points[7].into(),
-            [0.0, 1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[7].into(), [0.0, 1.0, 0.0]));
         /*14*/
-        vertex_data.push(voxel_vertex(
-            corner_points[6].into(),
-            [0.0, 1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[6].into(), [0.0, 1.0, 0.0]));
         /*15*/
-        vertex_data.push(voxel_vertex(
-            corner_points[2].into(),
-            [0.0, 1.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[2].into(), [0.0, 1.0, 0.0]));
 
         // left
         /*16*/
-        vertex_data.push(voxel_vertex(
-            corner_points[3].into(),
-            [-1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[3].into(), [-1.0, 0.0, 0.0]));
         /*17*/
-        vertex_data.push(voxel_vertex(
-            corner_points[0].into(),
-            [-1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[0].into(), [-1.0, 0.0, 0.0]));
         /*18*/
-        vertex_data.push(voxel_vertex(
-            corner_points[4].into(),
-            [-1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[4].into(), [-1.0, 0.0, 0.0]));
         /*19*/
-        vertex_data.push(voxel_vertex(
-            corner_points[7].into(),
-            [-1.0, 0.0, 0.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[7].into(), [-1.0, 0.0, 0.0]));
 
         // front
         /*20*/
-        vertex_data.push(voxel_vertex(
-            corner_points[4].into(),
-            [0.0, 0.0, 1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[4].into(), [0.0, 0.0, 1.0]));
         /*21*/
-        vertex_data.push(voxel_vertex(
-            corner_points[5].into(),
-            [0.0, 0.0, 1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[5].into(), [0.0, 0.0, 1.0]));
         /*22*/
-        vertex_data.push(voxel_vertex(
-            corner_points[6].into(),
-            [0.0, 0.0, 1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[6].into(), [0.0, 0.0, 1.0]));
         /*23*/
-        vertex_data.push(voxel_vertex(
-            corner_points[7].into(),
-            [0.0, 0.0, 1.0],
-        ));
+        vertex_data.push(voxel_vertex(corner_points[7].into(), [0.0, 0.0, 1.0]));
 
         vertex_data
     }

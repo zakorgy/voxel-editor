@@ -968,8 +968,7 @@ impl Renderer {
     pub fn render(
         &mut self,
         ui: &mut Ui,
-        #[cfg(feature = "debug_ray")]
-        voxel_manager: &mut VoxelManager
+        #[cfg(feature = "debug_ray")] voxel_manager: &mut VoxelManager,
     ) -> Interaction {
         #[cfg(feature = "debug_ray")]
         self.debug_update(voxel_manager);

@@ -3,8 +3,8 @@ use crate::controls::EditOp;
 use crate::geometry::*;
 use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
 use crate::ui::Ui;
-use crate::voxel_manager::VoxelManager;
 use crate::vertex::VoxelVertex;
+use crate::voxel_manager::VoxelManager;
 use cgmath::Vector3;
 use futures::executor::block_on;
 use iced_wgpu::wgpu;
@@ -76,24 +76,12 @@ impl Editor {
         };
 
         if let event::WindowEvent::CursorMoved { position, .. } = event {
-            let near_pos_world = unproject(
+            self.cursor_ray.from_cursor(
                 position.x as f32,
                 position.y as f32,
-                0.1 as f32,
-                self.camera.model_view_mat(),
-                self.camera.projection_mat(),
+                &self.camera,
                 self.window.inner_size(),
             );
-
-            let far_pos_world = unproject(
-                position.x as f32,
-                position.y as f32,
-                1.0 as f32,
-                self.camera.model_view_mat(),
-                self.camera.projection_mat(),
-                self.window.inner_size(),
-            );
-            self.cursor_ray = Ray::new(near_pos_world, far_pos_world);
         }
 
         if self.state == EditorState::ChangeView {
@@ -106,9 +94,7 @@ impl Editor {
         self.renderer
             .cursor_helper(Some(self.cursor_ray.origin), self.cursor_ray.end);
 
-        let (erase_box, draw_box) = self
-            .voxel_manager
-            .get_intersection_box(&self.cursor_ray);
+        let (erase_box, draw_box) = self.voxel_manager.get_intersection_boxes(&self.cursor_ray);
         #[cfg(feature = "debug_ray")]
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
@@ -196,12 +182,14 @@ impl Editor {
                 match self.ui.controls().edit_op() {
                     EditOp::Draw => {
                         let c = self.ui.controls().draw_color();
-                        self.renderer.draw_rectangle([c.r, c.g, c.b, c.a], &mut self.voxel_manager)
+                        self.renderer
+                            .draw_rectangle([c.r, c.g, c.b, c.a], &mut self.voxel_manager)
                     }
                     EditOp::Erase => self.renderer.erase_rectangle(&mut self.voxel_manager),
                     EditOp::Refill => {
                         let c = self.ui.controls().draw_color();
-                        self.renderer.fill_rectangle([c.r, c.g, c.b, c.a], &mut self.voxel_manager)
+                        self.renderer
+                            .fill_rectangle([c.r, c.g, c.b, c.a], &mut self.voxel_manager)
                     }
                 };
                 self.state = EditorState::ChangeView;
@@ -213,7 +201,7 @@ impl Editor {
         let mouse_interaction = self.renderer.render(
             &mut self.ui,
             #[cfg(feature = "debug_ray")]
-            &mut self.voxel_manager
+            &mut self.voxel_manager,
         );
         // Update the mouse cursor
         self.window
