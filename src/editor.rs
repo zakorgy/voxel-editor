@@ -1,5 +1,6 @@
 use crate::camera::CameraWrapper;
 use crate::controls::EditOp;
+use crate::fps::FpsCounter;
 use crate::geometry::*;
 use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
 use crate::ui::Ui;
@@ -320,19 +321,15 @@ impl Editor {
         };
 
         let mut last_update_inst = time::Instant::now();
-        let mut last_fps_instant = time::Instant::now();
-        let mut frame_rendered = 0;
+        let mut fps_counter = FpsCounter::init();
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
-            let elapsed = last_fps_instant.elapsed();
-            if elapsed > time::Duration::from_secs(1) {
-                editor.window.set_title(&format!(
-                    "Voxel-editor (FPS: {:?})",
-                    frame_rendered as f32 / elapsed.as_secs() as f32
-                ));
-                last_fps_instant = time::Instant::now();
-                frame_rendered = 0;
+            let _ = &adapter; // force ownership by the closure
+            if let Some(fps) = fps_counter.get_fps() {
+                editor
+                    .window
+                    .set_title(&format!("Voxel-editor (FPS: {:?})", fps));
             }
             if let Some(file_path) = editor.ui.controls().save_path() {
                 match editor.save_vertices(file_path) {
@@ -340,7 +337,6 @@ impl Editor {
                     Ok(_) => println!("File saved"),
                 };
             }
-            let _ = &adapter; // force ownership by the closure
             match event {
                 event::Event::MainEventsCleared => {
                     if last_update_inst.elapsed() > time::Duration::from_millis(16) {
@@ -377,7 +373,7 @@ impl Editor {
                 }
                 event::Event::RedrawRequested(_) => {
                     editor.redraw();
-                    frame_rendered += 1;
+                    fps_counter.incr_frame();
                 }
                 _ => {}
             }

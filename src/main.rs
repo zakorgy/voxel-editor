@@ -2,6 +2,7 @@ mod camera;
 mod color;
 mod controls;
 mod editor;
+mod fps;
 mod geometry;
 mod light;
 mod renderer;
