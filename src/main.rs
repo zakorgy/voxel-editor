@@ -21,7 +21,8 @@ fn run(title: &str) {
         .with_inner_size(winit::dpi::LogicalSize::new(1280, 720));
     let window = builder.build(&event_loop).unwrap();
     env_logger::init();
-    Editor::run_editor(event_loop, window);
+    let editor = Editor::init(window);
+    editor.run(event_loop)
 }
 
 fn main() {

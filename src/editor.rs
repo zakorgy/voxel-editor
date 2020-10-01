@@ -260,7 +260,7 @@ impl Editor {
         Ok(())
     }
 
-    pub fn run_editor(event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window) {
+    pub fn init(window: winit::window::Window) -> Self {
         log::info!("Initializing the surface...");
 
         let (size, surface) = {
@@ -310,7 +310,7 @@ impl Editor {
             DEFAULT_MESH_COUNT,
             &mut camera,
         );
-        let mut editor = Editor {
+        Editor {
             window,
             renderer,
             ui,
@@ -318,21 +318,21 @@ impl Editor {
             cursor_ray: Ray::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0)),
             camera,
             voxel_manager: VoxelManager::new(DEFAULT_MESH_COUNT as usize),
-        };
+        }
+    }
 
+    pub fn run(mut self, event_loop: winit::event_loop::EventLoop<()>) {
         let mut last_update_inst = time::Instant::now();
         let mut fps_counter = FpsCounter::init();
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
-            let _ = &adapter; // force ownership by the closure
             if let Some(fps) = fps_counter.get_fps() {
-                editor
-                    .window
+                self.window
                     .set_title(&format!("Voxel-editor (FPS: {:?})", fps));
             }
-            if let Some(file_path) = editor.ui.controls().save_path() {
-                match editor.save_vertices(file_path) {
+            if let Some(file_path) = self.ui.controls().save_path() {
+                match self.save_vertices(file_path) {
                     Err(e) => println!("Failed to save file reason: {:?}", e),
                     Ok(_) => println!("File saved"),
                 };
@@ -340,8 +340,8 @@ impl Editor {
             match event {
                 event::Event::MainEventsCleared => {
                     if last_update_inst.elapsed() > time::Duration::from_millis(16) {
-                        editor.ui.update_state();
-                        editor.window.request_redraw();
+                        self.ui.update_state();
+                        self.window.request_redraw();
                         last_update_inst = time::Instant::now();
                     }
                 }
@@ -350,7 +350,7 @@ impl Editor {
                     ..
                 } => {
                     log::info!("Resizing to {:?}", size);
-                    editor.resize(size);
+                    self.resize(size);
                 }
                 event::Event::WindowEvent { event, .. } => {
                     match event {
@@ -368,11 +368,11 @@ impl Editor {
                         }
                         _ => {}
                     }
-                    editor.ui.update(&event, editor.window.scale_factor());
-                    editor.update(event);
+                    self.ui.update(&event, self.window.scale_factor());
+                    self.update(event);
                 }
                 event::Event::RedrawRequested(_) => {
-                    editor.redraw();
+                    self.redraw();
                     fps_counter.incr_frame();
                 }
                 _ => {}
