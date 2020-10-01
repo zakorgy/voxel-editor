@@ -3,18 +3,22 @@ use cgmath::{EuclideanSpace, Matrix4, Ortho, Point3, Vector3};
 use iced_wgpu::wgpu;
 
 pub struct Light {
-    pub pos: Point3<f32>,
-    pub color: wgpu::Color,
-    pub fov: f32,
-    pub depth: std::ops::Range<f32>,
+    pos: Point3<f32>,
+    color: wgpu::Color,
+}
+
+impl Light {
+    pub fn new(pos: Point3<f32>, color: wgpu::Color) -> Self {
+        Light { pos, color }
+    }
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct LightRaw {
-    pub direction: [f32; 4],
-    pub color: [f32; 4],
-    pub proj: [[f32; 4]; 4],
+    direction: [f32; 4],
+    color: [f32; 4],
+    proj: [[f32; 4]; 4],
 }
 
 unsafe impl Pod for LightRaw {}
@@ -30,7 +34,7 @@ impl Light {
             bottom: -mesh_count,
             top: mesh_count,
             near: -mesh_count,
-            far:  3.0 * mesh_count,
+            far: 3.0 * mesh_count,
         };
         let mx_view_proj = cgmath::Matrix4::from(ortho_projection) * mx_view;
         let light_dir = self.pos - origin;

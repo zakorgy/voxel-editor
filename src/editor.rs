@@ -1,7 +1,11 @@
+use crate::camera::CameraWrapper;
 use crate::controls::EditOp;
+use crate::fps::FpsCounter;
 use crate::geometry::*;
 use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
 use crate::ui::Ui;
+use crate::vertex::VoxelVertex;
+use crate::voxel_manager::VoxelManager;
 use cgmath::Vector3;
 use futures::executor::block_on;
 use iced_wgpu::wgpu;
@@ -24,6 +28,8 @@ enum EditorState {
 
 pub struct Editor {
     window: winit::window::Window,
+    camera: CameraWrapper,
+    voxel_manager: VoxelManager,
     renderer: Renderer,
     ui: Ui,
     state: EditorState,
@@ -32,7 +38,12 @@ pub struct Editor {
 
 impl Editor {
     fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>) {
-        self.renderer.resize(size);
+        self.renderer.resize(size, &mut self.camera);
+        self.ui = Ui::new(&self.window, self.renderer.device_mut())
+    }
+
+    pub fn get_model_data(&self) -> (Vec<VoxelVertex>, Vec<u32>) {
+        self.voxel_manager.vertices()
     }
 
     fn update(&mut self, event: winit::event::WindowEvent) {
@@ -66,42 +77,30 @@ impl Editor {
         };
 
         if let event::WindowEvent::CursorMoved { position, .. } = event {
-            let near_pos_world = unproject(
+            self.cursor_ray.from_cursor(
                 position.x as f32,
                 position.y as f32,
-                0.1 as f32,
-                self.renderer.camera.model_view_mat(),
-                self.renderer.camera.projection_mat(),
+                &self.camera,
                 self.window.inner_size(),
             );
-
-            let far_pos_world = unproject(
-                position.x as f32,
-                position.y as f32,
-                1.0 as f32,
-                self.renderer.camera.model_view_mat(),
-                self.renderer.camera.projection_mat(),
-                self.window.inner_size(),
-            );
-            self.cursor_ray = Ray::new(near_pos_world, far_pos_world);
         }
 
         if self.state == EditorState::ChangeView {
-            self.renderer.update_view(event);
+            let viewport_changed = self.camera.update(&event);
+            if viewport_changed {
+                self.renderer.update_view(&mut self.camera);
+            }
         }
         #[cfg(feature = "debug_ray")]
         self.renderer
             .cursor_helper(Some(self.cursor_ray.origin), self.cursor_ray.end);
 
-        let (erase_box, draw_box) = self
-            .renderer
-            .voxel_manager
-            .get_intersection_box(&self.cursor_ray);
+        let (erase_box, draw_box) = self.voxel_manager.get_intersection_boxes(&self.cursor_ray);
         #[cfg(feature = "debug_ray")]
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
         let mut intersection_point = Vector3::new(0.0, 0.0, 0.0);
-        let mesh_count = self.renderer.mesh_count as f32;
+        let mesh_count = DEFAULT_MESH_COUNT as f32;
         if erase_box.is_none() {
             for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
                 if let Some(point) = self.cursor_ray.plane_intersection(plane) {
@@ -184,12 +183,14 @@ impl Editor {
                 match self.ui.controls().edit_op() {
                     EditOp::Draw => {
                         let c = self.ui.controls().draw_color();
-                        self.renderer.draw_rectangle([c.r, c.g, c.b, c.a])
+                        self.renderer
+                            .draw_rectangle([c.r, c.g, c.b, c.a], &mut self.voxel_manager)
                     }
-                    EditOp::Erase => self.renderer.erase_rectangle(),
+                    EditOp::Erase => self.renderer.erase_rectangle(&mut self.voxel_manager),
                     EditOp::Refill => {
                         let c = self.ui.controls().draw_color();
-                        self.renderer.fill_rectangle([c.r, c.g, c.b, c.a])
+                        self.renderer
+                            .fill_rectangle([c.r, c.g, c.b, c.a], &mut self.voxel_manager)
                     }
                 };
                 self.state = EditorState::ChangeView;
@@ -198,14 +199,18 @@ impl Editor {
     }
 
     fn redraw(&mut self) {
-        let mouse_interaction = self.renderer.render(&mut self.ui);
+        let mouse_interaction = self.renderer.render(
+            &mut self.ui,
+            #[cfg(feature = "debug_ray")]
+            &mut self.voxel_manager,
+        );
         // Update the mouse cursor
         self.window
             .set_cursor_icon(iced_winit::conversion::mouse_interaction(mouse_interaction));
     }
 
     fn save_vertices(&self, file_path: String) -> std::io::Result<()> {
-        let (vertex_data, indices) = self.renderer.get_model_data();
+        let (vertex_data, indices) = self.get_model_data();
         let mut buffer = BufWriter::new(File::create(&file_path)?);
 
         buffer.write_all(b"# List of geometric vertices, with (x, y, z [,w]) coordinates, w is optional and defaults to 1.0.\n")?;
@@ -255,7 +260,7 @@ impl Editor {
         Ok(())
     }
 
-    pub fn run_editor(event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window) {
+    pub fn init(window: winit::window::Window) -> Self {
         log::info!("Initializing the surface...");
 
         let (size, surface) = {
@@ -290,6 +295,11 @@ impl Editor {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
         let ui = Ui::new(&window, &mut device);
 
+        let mut camera = CameraWrapper::new(
+            sc_desc.width as f32 / sc_desc.height as f32,
+            DEFAULT_MESH_COUNT as f32,
+        );
+
         log::info!("Initializing the Renderer...");
         let renderer = Renderer::init(
             surface,
@@ -298,39 +308,40 @@ impl Editor {
             sc_desc,
             swap_chain,
             DEFAULT_MESH_COUNT,
+            &mut camera,
         );
-        let mut editor = Editor {
+        Editor {
             window,
             renderer,
             ui,
             state: EditorState::ChangeView,
             cursor_ray: Ray::new(Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 1.0)),
-        };
+            camera,
+            voxel_manager: VoxelManager::new(DEFAULT_MESH_COUNT as usize),
+        }
+    }
 
+    pub fn run(mut self, event_loop: winit::event_loop::EventLoop<()>) {
         let mut last_update_inst = time::Instant::now();
-        let mut last_fps_instant = time::Instant::now();
-        let mut frame_rendered = 0;
+        let mut fps_counter = FpsCounter::init();
 
         log::info!("Entering render loop...");
         event_loop.run(move |event, _, control_flow| {
-            let elapsed = last_fps_instant.elapsed();
-            if  elapsed > time::Duration::from_secs(1) {
-                editor.window.set_title(&format!("Voxel-editor (FPS: {:?})", frame_rendered as f32 / elapsed.as_secs() as f32));
-                last_fps_instant = time::Instant::now();
-                frame_rendered = 0;
+            if let Some(fps) = fps_counter.get_fps() {
+                self.window
+                    .set_title(&format!("Voxel-editor (FPS: {:?})", fps));
             }
-            if let Some(file_path) = editor.ui.controls().save_path() {
-                match editor.save_vertices(file_path) {
+            if let Some(file_path) = self.ui.controls().save_path() {
+                match self.save_vertices(file_path) {
                     Err(e) => println!("Failed to save file reason: {:?}", e),
                     Ok(_) => println!("File saved"),
                 };
             }
-            let _ = &adapter; // force ownership by the closure
             match event {
                 event::Event::MainEventsCleared => {
                     if last_update_inst.elapsed() > time::Duration::from_millis(16) {
-                        editor.ui.update_state();
-                        editor.window.request_redraw();
+                        self.ui.update_state();
+                        self.window.request_redraw();
                         last_update_inst = time::Instant::now();
                     }
                 }
@@ -339,8 +350,7 @@ impl Editor {
                     ..
                 } => {
                     log::info!("Resizing to {:?}", size);
-                    editor.resize(size);
-                    editor.ui = Ui::new(&editor.window, &mut editor.renderer.device)
+                    self.resize(size);
                 }
                 event::Event::WindowEvent { event, .. } => {
                     match event {
@@ -358,12 +368,12 @@ impl Editor {
                         }
                         _ => {}
                     }
-                    editor.ui.update(&event, editor.window.scale_factor());
-                    editor.update(event);
+                    self.ui.update(&event, self.window.scale_factor());
+                    self.update(event);
                 }
                 event::Event::RedrawRequested(_) => {
-                    editor.redraw();
-                    frame_rendered += 1;
+                    self.redraw();
+                    fps_counter.incr_frame();
                 }
                 _ => {}
             }
