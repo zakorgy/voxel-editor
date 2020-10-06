@@ -92,14 +92,19 @@ pub const XZ_PLANE: Plane = Plane {
 pub struct Ray {
     pub origin: Vector3<f32>,
     pub end: Vector3<f32>,
+    pub inv_len: Vector3<f32>,
     vector: Vector3<f32>,
 }
 
 impl Ray {
     pub fn new(origin: Vector3<f32>, end: Vector3<f32>) -> Self {
+
+        let vector = origin - end;
+
         Ray {
             origin,
-            vector: origin - end,
+            vector,
+            inv_len: 1.0 / vector,
             end,
         }
     }
@@ -398,8 +403,8 @@ pub fn ray_box_intersection(bbox: &BoundingBox, ray: &Ray, dist: &mut f32) -> bo
     let mut tmax = f32::INFINITY;
 
     for i in 0..3 {
-        let t1 = (bbox.corner[i] - ray.origin[i]) / (ray.end[i] - ray.origin[i]);
-        let t2 = (bbox.vec_max()[i] - ray.origin[i]) / (ray.end[i] - ray.origin[i]);
+        let t1 = (bbox.corner[i] - ray.origin[i]) * ray.inv_len[i];
+        let t2 = (bbox.vec_max()[i] - ray.origin[i]) * ray.inv_len[i];
 
         tmin = tmin.max(t1.min(t2));
         tmax = tmax.min(t1.max(t2));
