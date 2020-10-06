@@ -408,3 +408,28 @@ pub fn ray_box_intersection(bbox: &BoundingBox, ray: &Ray, dist: &mut f32) -> bo
     *dist = BoundingBox::manhattan_distance(&ray.origin, &bbox.corner);
     tmax >= tmin.max(0.0)
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn ray_box_intersection() {
+
+        let black      = [0.0, 0.0, 0.0, 1.0];
+        let origin     = Vector3::new(0.0, 0.0, 0.0);
+        let ray_dir    = Vector3::new(1.0, 0.0, 0.0);
+        let box_extent = Vector3::new(1.0, 1.0, 1.0);
+        let box_corner = Vector3::new(0.0, -0.5, -0.5);
+
+        let ray = Ray::new(origin, ray_dir);
+        let bb  = BoundingBox::new(box_corner,
+                                   box_extent,
+                                   black);
+
+        let mut dist = 0.0;
+        assert!( super::ray_box_intersection(&bb, &ray, &mut dist) );
+        assert_eq!( dist, 1.0 );
+    }
+}
