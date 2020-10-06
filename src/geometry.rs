@@ -92,19 +92,14 @@ pub const XZ_PLANE: Plane = Plane {
 pub struct Ray {
     pub origin: Vector3<f32>,
     pub end: Vector3<f32>,
-    pub inv_len: Vector3<f32>,
     vector: Vector3<f32>,
 }
 
 impl Ray {
     pub fn new(origin: Vector3<f32>, end: Vector3<f32>) -> Self {
-
-        let vector = origin - end;
-
         Ray {
             origin,
-            vector,
-            inv_len: 1.0 / vector,
+            vector: origin - end,
             end,
         }
     }
@@ -119,6 +114,24 @@ impl Ray {
             }
         }
         None
+    }
+
+    pub fn box_intersection(&self, bbox: &BoundingBox, dist: &mut f32) -> bool {
+        let mut tmin = f32::NEG_INFINITY;
+        let mut tmax = f32::INFINITY;
+
+        let dir = 1.0 / self.vector;
+
+        for i in 0..3 {
+            let t1 = (bbox.corner[i] - self.origin[i]) * dir[i];
+            let t2 = (bbox.vec_max()[i] - self.origin[i]) * dir[i];
+
+            tmin = tmin.max(t1.min(t2));
+            tmax = tmax.min(t1.max(t2));
+        }
+
+        *dist = BoundingBox::manhattan_distance(&self.origin, &bbox.corner);
+        tmax >= tmin.max(0.0)
     }
 
     pub fn unproject(
@@ -398,22 +411,6 @@ impl BoundingBox {
     }
 }
 
-pub fn ray_box_intersection(bbox: &BoundingBox, ray: &Ray, dist: &mut f32) -> bool {
-    let mut tmin = f32::NEG_INFINITY;
-    let mut tmax = f32::INFINITY;
-
-    for i in 0..3 {
-        let t1 = (bbox.corner[i] - ray.origin[i]) * ray.inv_len[i];
-        let t2 = (bbox.vec_max()[i] - ray.origin[i]) * ray.inv_len[i];
-
-        tmin = tmin.max(t1.min(t2));
-        tmax = tmax.min(t1.max(t2));
-    }
-
-    *dist = BoundingBox::manhattan_distance(&ray.origin, &bbox.corner);
-    tmax >= tmin.max(0.0)
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -434,7 +431,7 @@ mod tests {
                                    black);
 
         let mut dist = 0.0;
-        assert!( super::ray_box_intersection(&bb, &ray, &mut dist) );
+        assert!( ray.box_intersection(&bb, &mut dist) );
         assert_eq!( dist, 1.0 );
     }
 }

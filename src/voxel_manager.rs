@@ -1,4 +1,4 @@
-use crate::geometry::{ray_box_intersection, BoundingBox, Ray};
+use crate::geometry::{BoundingBox, Ray};
 use crate::vertex::{instance, VoxelInstance, VoxelVertex};
 use cgmath::Vector3;
 
@@ -166,7 +166,7 @@ impl VoxelManager {
                             color,
                         );
 
-                        if ray_box_intersection(&bbox, ray, &mut distance) {
+                        if ray.box_intersection(&bbox, &mut distance) {
                             if distance.abs() < closest_distance {
                                 closest_distance = distance.abs();
                                 erase_box = Some(bbox);
@@ -189,7 +189,7 @@ impl VoxelManager {
                 bbox.corner.z as usize,
             );
             for bbox in boxes {
-                if ray_box_intersection(&bbox, ray, &mut distance) {
+                if ray.box_intersection(&bbox, &mut distance) {
                     if distance.abs() < closest_distance {
                         closest_distance = distance.abs();
                         draw_box = Some(bbox);
