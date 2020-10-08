@@ -120,11 +120,11 @@ impl Ray {
         let mut tmin = f32::NEG_INFINITY;
         let mut tmax = f32::INFINITY;
 
-        let dir = 1.0 / self.vector;
+        let inv_dir = 1.0 / -self.vector;
 
         for i in 0..3 {
-            let t1 = (bbox.corner[i] - self.origin[i]) * dir[i];
-            let t2 = (bbox.vec_max()[i] - self.origin[i]) * dir[i];
+            let t1 = (bbox.corner[i] - self.origin[i]) * inv_dir[i];
+            let t2 = (bbox.vec_max()[i] - self.origin[i]) * inv_dir[i];
 
             tmin = tmin.max(t1.min(t2));
             tmax = tmax.min(t1.max(t2));
@@ -423,15 +423,17 @@ mod tests {
         let origin     = Vector3::new(0.0, 0.0, 0.0);
         let ray_dir    = Vector3::new(1.0, 0.0, 0.0);
         let box_extent = Vector3::new(1.0, 1.0, 1.0);
-        let box_corner = Vector3::new(0.0, -0.5, -0.5);
+        let box_corner = Vector3::new(1.0, -0.5, -0.5);
 
         let ray = Ray::new(origin, ray_dir);
         let bb  = BoundingBox::new(box_corner,
                                    box_extent,
                                    black);
 
-        let mut dist = 0.0;
+        let expected_dist = box_corner.x.abs() + box_corner.y.abs() + box_corner.z.abs(); // Manhattan distance
+        let mut dist      = 0.0;
+
         assert!( ray.box_intersection(&bb, &mut dist) );
-        assert_eq!( dist, 1.0 );
+        assert_eq!( dist, expected_dist );
     }
 }
