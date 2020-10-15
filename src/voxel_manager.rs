@@ -210,6 +210,9 @@ impl VoxelManager {
             for y in 0..self.extent {
                 for z in 0..self.extent {
                     if let Some(color) = self.boxes[x][y][z].color {
+                        if !self.boxes[x][y][z].visible() {
+                            continue;
+                        }
                         idx = vertex_data.len() as u32;
                         for i in 0..6 {
                             step = 4 * i;
