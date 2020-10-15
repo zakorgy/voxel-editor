@@ -418,22 +418,19 @@ mod tests {
 
     #[test]
     fn ray_box_intersection() {
-
-        let black      = [0.0, 0.0, 0.0, 1.0];
-        let origin     = Vector3::new(0.0, 0.0, 0.0);
-        let ray_dir    = Vector3::new(1.0, 0.0, 0.0);
+        let black = [0.0, 0.0, 0.0, 1.0];
+        let origin = Vector3::new(0.0, 0.0, 0.0);
+        let ray_dir = Vector3::new(1.0, 0.0, 0.0);
         let box_extent = Vector3::new(1.0, 1.0, 1.0);
         let box_corner = Vector3::new(1.0, -0.5, -0.5);
 
         let ray = Ray::new(origin, ray_dir);
-        let bb  = BoundingBox::new(box_corner,
-                                   box_extent,
-                                   black);
+        let bb = BoundingBox::new(box_corner, box_extent, black);
 
         let expected_dist = box_corner.x.abs() + box_corner.y.abs() + box_corner.z.abs(); // Manhattan distance
-        let mut dist      = 0.0;
+        let mut dist = 0.0;
 
-        assert!( ray.box_intersection(&bb, &mut dist) );
-        assert_eq!( dist, expected_dist );
+        assert!(ray.box_intersection(&bb, &mut dist));
+        assert_eq!(dist, expected_dist);
     }
 }
