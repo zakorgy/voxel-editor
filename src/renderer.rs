@@ -799,10 +799,8 @@ impl Renderer {
                 &mut self.command_buffers,
             );
             self.draw_cube = Some(draw_cube);
-            self.render_cursor = true;
-        } else {
-            self.render_cursor = false;
         }
+        self.render_cursor = true;
     }
 
     pub fn update_draw_rectangle(&mut self, mut bbox: BoundingBox) {
