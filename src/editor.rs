@@ -214,6 +214,9 @@ impl Editor {
         let mut buffer = BufWriter::new(File::create(&file_path)?);
 
         buffer.write_all(b"# List of geometric vertices, with (x, y, z [,w]) coordinates, w is optional and defaults to 1.0.\n")?;
+        buffer.write_all(
+            b"# List of vertex normals in (x,y,z) form; normals might not be unit vectors.\n",
+        )?;
 
         for vd in vertex_data.iter() {
             buffer.write_all(
@@ -223,13 +226,6 @@ impl Editor {
                 )
                 .as_ref(),
             )?;
-        }
-
-        buffer.write_all(
-            b"# List of vertex normals in (x,y,z) form; normals might not be unit vectors.\n",
-        )?;
-
-        for vd in vertex_data.iter() {
             buffer.write_all(
                 format!(
                     "vn {:.3} {:.3} {:.3}\n",
@@ -244,12 +240,9 @@ impl Editor {
         for id in indices.chunks(3) {
             buffer.write_all(
                 format!(
-                    "f {}//{} {}//{} {}//{}\n",
-                    id[0] + 1,
+                    "f {0}//{0} {1}//{1} {2}//{2}\n",
                     id[0] + 1,
                     id[1] + 1,
-                    id[1] + 1,
-                    id[2] + 1,
                     id[2] + 1
                 )
                 .as_ref(),
