@@ -433,4 +433,14 @@ mod tests {
         assert!(ray.box_intersection(&bb, &mut dist));
         assert_eq!(dist, expected_dist);
     }
+
+    #[test]
+    fn ray_plane_intersection() {
+        let ray_origin = Vector3::new(0.5, 0.5, 10.0);
+        let ray_end = Vector3::new(0.5, 0.5, -50.0);
+        let ray = Ray::new(ray_origin, ray_end);
+        let intersection = ray.plane_intersection(&XY_PLANE);
+        let expected_intersection = Some(Vector3::new(0.5, 0.5, 0.0));
+        assert_eq!(intersection, expected_intersection);
+    }
 }
