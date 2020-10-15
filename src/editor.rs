@@ -76,6 +76,19 @@ impl Editor {
             self.ui.controls().step_edit_op();
         };
 
+        if let event::WindowEvent::KeyboardInput {
+            input:
+                event::KeyboardInput {
+                    virtual_keycode: Some(event::VirtualKeyCode::G),
+                    state: event::ElementState::Pressed,
+                    ..
+                },
+            ..
+        } = event
+        {
+            self.renderer.toggle_render_mesh();
+        };
+
         if let event::WindowEvent::CursorMoved { position, .. } = event {
             self.cursor_ray.from_cursor(
                 position.x as f32,
