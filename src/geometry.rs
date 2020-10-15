@@ -277,71 +277,23 @@ impl BoundingBox {
     }
 
     pub fn vertices(&self) -> Vec<Vertex> {
-        let mut vertex_data = Vec::new();
         let corner_points = self.corner_points();
         let color = self.color;
 
         // back
-        /*0*/
-        vertex_data.push(vertex(corner_points[0].into(), color));
-        /*1*/
-        vertex_data.push(vertex(corner_points[3].into(), color));
-        /*2*/
-        vertex_data.push(vertex(corner_points[2].into(), color));
-        /*3*/
-        vertex_data.push(vertex(corner_points[1].into(), color));
+        let corner_indices = [
+            0, 3, 2, 1, // back
+            1, 5, 4, 0, // bottom
+            2, 6, 5, 1, // right
+            3, 7, 6, 2, // top
+            3, 0, 4, 7, // left
+            4, 5, 6, 7, // front
+        ];
 
-        // bottom
-        /*4*/
-        vertex_data.push(vertex(corner_points[1].into(), color));
-        /*5*/
-        vertex_data.push(vertex(corner_points[5].into(), color));
-        /*6*/
-        vertex_data.push(vertex(corner_points[4].into(), color));
-        /*7*/
-        vertex_data.push(vertex(corner_points[0].into(), color));
-
-        // right
-        /*9*/
-        vertex_data.push(vertex(corner_points[2].into(), color));
-        /*8*/
-        vertex_data.push(vertex(corner_points[6].into(), color));
-        /*10*/
-        vertex_data.push(vertex(corner_points[5].into(), color));
-        /*11*/
-        vertex_data.push(vertex(corner_points[1].into(), color));
-
-        // top
-        /*12*/
-        vertex_data.push(vertex(corner_points[3].into(), color));
-        /*13*/
-        vertex_data.push(vertex(corner_points[7].into(), color));
-        /*14*/
-        vertex_data.push(vertex(corner_points[6].into(), color));
-        /*15*/
-        vertex_data.push(vertex(corner_points[2].into(), color));
-
-        // left
-        /*16*/
-        vertex_data.push(vertex(corner_points[3].into(), color));
-        /*17*/
-        vertex_data.push(vertex(corner_points[0].into(), color));
-        /*18*/
-        vertex_data.push(vertex(corner_points[4].into(), color));
-        /*19*/
-        vertex_data.push(vertex(corner_points[7].into(), color));
-
-        // front
-        /*20*/
-        vertex_data.push(vertex(corner_points[4].into(), color));
-        /*21*/
-        vertex_data.push(vertex(corner_points[5].into(), color));
-        /*22*/
-        vertex_data.push(vertex(corner_points[6].into(), color));
-        /*23*/
-        vertex_data.push(vertex(corner_points[7].into(), color));
-
-        vertex_data
+        corner_indices
+            .iter()
+            .map(|i| vertex(corner_points[*i].into(), color))
+            .collect()
     }
 
     pub fn voxel_vertices(&self) -> Vec<VoxelVertex> {
