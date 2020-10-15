@@ -116,6 +116,24 @@ impl Ray {
         None
     }
 
+    pub fn box_intersection(&self, bbox: &BoundingBox, dist: &mut f32) -> bool {
+        let mut tmin = f32::NEG_INFINITY;
+        let mut tmax = f32::INFINITY;
+
+        let inv_dir = 1.0 / -self.vector;
+
+        for i in 0..3 {
+            let t1 = (bbox.corner[i] - self.origin[i]) * inv_dir[i];
+            let t2 = (bbox.vec_max()[i] - self.origin[i]) * inv_dir[i];
+
+            tmin = tmin.max(t1.min(t2));
+            tmax = tmax.min(t1.max(t2));
+        }
+
+        *dist = BoundingBox::manhattan_distance(&self.origin, &bbox.corner);
+        tmax >= tmin.max(0.0)
+    }
+
     pub fn unproject(
         winx: f32,
         winy: f32,
@@ -393,18 +411,29 @@ impl BoundingBox {
     }
 }
 
-pub fn ray_box_intersection(bbox: &BoundingBox, ray: &Ray, dist: &mut f32) -> bool {
-    let mut tmin = f32::NEG_INFINITY;
-    let mut tmax = f32::INFINITY;
+#[cfg(test)]
+mod tests {
 
-    for i in 0..3 {
-        let t1 = (bbox.corner[i] - ray.origin[i]) / (ray.end[i] - ray.origin[i]);
-        let t2 = (bbox.vec_max()[i] - ray.origin[i]) / (ray.end[i] - ray.origin[i]);
+    use super::*;
 
-        tmin = tmin.max(t1.min(t2));
-        tmax = tmax.min(t1.max(t2));
+    #[test]
+    fn ray_box_intersection() {
+
+        let black      = [0.0, 0.0, 0.0, 1.0];
+        let origin     = Vector3::new(0.0, 0.0, 0.0);
+        let ray_dir    = Vector3::new(1.0, 0.0, 0.0);
+        let box_extent = Vector3::new(1.0, 1.0, 1.0);
+        let box_corner = Vector3::new(1.0, -0.5, -0.5);
+
+        let ray = Ray::new(origin, ray_dir);
+        let bb  = BoundingBox::new(box_corner,
+                                   box_extent,
+                                   black);
+
+        let expected_dist = box_corner.x.abs() + box_corner.y.abs() + box_corner.z.abs(); // Manhattan distance
+        let mut dist      = 0.0;
+
+        assert!( ray.box_intersection(&bb, &mut dist) );
+        assert_eq!( dist, expected_dist );
     }
-
-    *dist = BoundingBox::manhattan_distance(&ray.origin, &bbox.corner);
-    tmax >= tmin.max(0.0)
 }
