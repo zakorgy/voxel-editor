@@ -254,3 +254,27 @@ impl VoxelManager {
         instance_data
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[test]
+    fn test_neighbours() {
+        let mut manager = VoxelManager::new(3);
+        let mut bbox = BoundingBox::new(
+            Vector3::new(0.0, 0.0, 0.0),
+            Vector3::new(3.0, 3.0, 3.0),
+            [1.0, 0.0, 0.0, 1.0],
+        );
+        manager.add_box(bbox);
+        assert_eq!(manager.boxes[1][1][1].neighbours, 6);
+        bbox = BoundingBox::new(
+            Vector3::new(1.0, 2.0, 0.0),
+            Vector3::new(1.0, 1.0, 3.0),
+            [1.0, 0.0, 0.0, 1.0],
+        );
+        manager.erase_box(bbox);
+        assert_eq!(manager.boxes[1][1][1].neighbours, 5);
+    }
+}
