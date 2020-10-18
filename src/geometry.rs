@@ -346,4 +346,17 @@ mod tests {
         let expected_intersection = Some(Vector3::new(0.5, 0.5, 0.0));
         assert_eq!(intersection, expected_intersection);
     }
+
+    #[test]
+    fn test_manhattan_distance() {
+        let mut start = Vector3::new(10.0, 10.0, 10.0);
+        let mut end = Vector3::new(0.0, 0.0, 0.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 30.0);
+        end = Vector3::new(5.0, 5.0, 5.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 15.0);
+        start = Vector3::new(-10.0, -10.0, -10.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 45.0);
+        end = Vector3::new(-10.0, -10.0, -10.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 0.0);
+    }
 }
