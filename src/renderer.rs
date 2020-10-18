@@ -88,6 +88,7 @@ pub struct Renderer {
     command_buffers: Vec<wgpu::CommandBuffer>,
     mesh_pipeline: Pipeline,
     render_cursor: bool,
+    render_mesh: bool,
     cursor_pipeline: Pipeline,
     voxel_pipeline: Pipeline,
     shadow_pipeline: Pipeline,
@@ -707,6 +708,7 @@ impl Renderer {
             cursor_cube,
             draw_cube: None,
             render_cursor: true,
+            render_mesh: true,
             mvp_buf: uniform_buf,
             multisampled_framebuffer,
             mesh_count,
@@ -740,6 +742,10 @@ impl Renderer {
             &self.mvp_buf,
             &mut self.command_buffers,
         );
+    }
+
+    pub fn toggle_render_mesh(&mut self) {
+        self.render_mesh = !self.render_mesh
     }
 
     fn get_grid_pos(world_pos: cgmath::Vector3<f32>) -> cgmath::Vector3<f32> {
@@ -799,10 +805,8 @@ impl Renderer {
                 &mut self.command_buffers,
             );
             self.draw_cube = Some(draw_cube);
-            self.render_cursor = true;
-        } else {
-            self.render_cursor = false;
         }
+        self.render_cursor = true;
     }
 
     pub fn update_draw_rectangle(&mut self, mut bbox: BoundingBox) {
@@ -1036,7 +1040,9 @@ impl Renderer {
                     clear_stencil: 0,
                 }),
             });
-            self.mesh_pipeline.draw(&mut rpass_depth);
+            if self.render_mesh {
+                self.mesh_pipeline.draw(&mut rpass_depth);
+            }
             if self.voxel_pipeline.instance_count > 0 {
                 self.voxel_pipeline.draw(&mut rpass_depth);
             }

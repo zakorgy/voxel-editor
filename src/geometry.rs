@@ -193,6 +193,15 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
+    const CORNER_INDICES: [usize; 24] = [
+        0, 3, 2, 1, // back
+        1, 5, 4, 0, // bottom
+        2, 6, 5, 1, // right
+        3, 7, 6, 2, // top
+        3, 0, 4, 7, // left
+        4, 5, 6, 7, // front
+    ];
+
     fn vec_max(&self) -> Vector3<f32> {
         self.corner + self.extent
     }
@@ -277,137 +286,31 @@ impl BoundingBox {
     }
 
     pub fn vertices(&self) -> Vec<Vertex> {
-        let mut vertex_data = Vec::new();
         let corner_points = self.corner_points();
         let color = self.color;
 
-        // back
-        /*0*/
-        vertex_data.push(vertex(corner_points[0].into(), color));
-        /*1*/
-        vertex_data.push(vertex(corner_points[3].into(), color));
-        /*2*/
-        vertex_data.push(vertex(corner_points[2].into(), color));
-        /*3*/
-        vertex_data.push(vertex(corner_points[1].into(), color));
-
-        // bottom
-        /*4*/
-        vertex_data.push(vertex(corner_points[1].into(), color));
-        /*5*/
-        vertex_data.push(vertex(corner_points[5].into(), color));
-        /*6*/
-        vertex_data.push(vertex(corner_points[4].into(), color));
-        /*7*/
-        vertex_data.push(vertex(corner_points[0].into(), color));
-
-        // right
-        /*9*/
-        vertex_data.push(vertex(corner_points[2].into(), color));
-        /*8*/
-        vertex_data.push(vertex(corner_points[6].into(), color));
-        /*10*/
-        vertex_data.push(vertex(corner_points[5].into(), color));
-        /*11*/
-        vertex_data.push(vertex(corner_points[1].into(), color));
-
-        // top
-        /*12*/
-        vertex_data.push(vertex(corner_points[3].into(), color));
-        /*13*/
-        vertex_data.push(vertex(corner_points[7].into(), color));
-        /*14*/
-        vertex_data.push(vertex(corner_points[6].into(), color));
-        /*15*/
-        vertex_data.push(vertex(corner_points[2].into(), color));
-
-        // left
-        /*16*/
-        vertex_data.push(vertex(corner_points[3].into(), color));
-        /*17*/
-        vertex_data.push(vertex(corner_points[0].into(), color));
-        /*18*/
-        vertex_data.push(vertex(corner_points[4].into(), color));
-        /*19*/
-        vertex_data.push(vertex(corner_points[7].into(), color));
-
-        // front
-        /*20*/
-        vertex_data.push(vertex(corner_points[4].into(), color));
-        /*21*/
-        vertex_data.push(vertex(corner_points[5].into(), color));
-        /*22*/
-        vertex_data.push(vertex(corner_points[6].into(), color));
-        /*23*/
-        vertex_data.push(vertex(corner_points[7].into(), color));
-
-        vertex_data
+        Self::CORNER_INDICES
+            .iter()
+            .map(|i| vertex(corner_points[*i].into(), color))
+            .collect()
     }
 
     pub fn voxel_vertices(&self) -> Vec<VoxelVertex> {
-        let mut vertex_data = Vec::new();
         let corner_points = self.corner_points();
-        // back
-        /*0*/
-        vertex_data.push(voxel_vertex(corner_points[0].into(), [0.0, 0.0, -1.0]));
-        /*1*/
-        vertex_data.push(voxel_vertex(corner_points[3].into(), [0.0, 0.0, -1.0]));
-        /*2*/
-        vertex_data.push(voxel_vertex(corner_points[2].into(), [0.0, 0.0, -1.0]));
-        /*3*/
-        vertex_data.push(voxel_vertex(corner_points[1].into(), [0.0, 0.0, -1.0]));
+        let normals = [
+            [0.0, 0.0, -1.0],
+            [0.0, -1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ];
 
-        // bottom
-        /*4*/
-        vertex_data.push(voxel_vertex(corner_points[1].into(), [0.0, -1.0, 0.0]));
-        /*5*/
-        vertex_data.push(voxel_vertex(corner_points[5].into(), [0.0, -1.0, 0.0]));
-        /*6*/
-        vertex_data.push(voxel_vertex(corner_points[4].into(), [0.0, -1.0, 0.0]));
-        /*7*/
-        vertex_data.push(voxel_vertex(corner_points[0].into(), [0.0, -1.0, 0.0]));
-
-        // right
-        /*9*/
-        vertex_data.push(voxel_vertex(corner_points[2].into(), [1.0, 0.0, 0.0]));
-        /*8*/
-        vertex_data.push(voxel_vertex(corner_points[6].into(), [1.0, 0.0, 0.0]));
-        /*10*/
-        vertex_data.push(voxel_vertex(corner_points[5].into(), [1.0, 0.0, 0.0]));
-        /*11*/
-        vertex_data.push(voxel_vertex(corner_points[1].into(), [1.0, 0.0, 0.0]));
-
-        // top
-        /*12*/
-        vertex_data.push(voxel_vertex(corner_points[3].into(), [0.0, 1.0, 0.0]));
-        /*13*/
-        vertex_data.push(voxel_vertex(corner_points[7].into(), [0.0, 1.0, 0.0]));
-        /*14*/
-        vertex_data.push(voxel_vertex(corner_points[6].into(), [0.0, 1.0, 0.0]));
-        /*15*/
-        vertex_data.push(voxel_vertex(corner_points[2].into(), [0.0, 1.0, 0.0]));
-
-        // left
-        /*16*/
-        vertex_data.push(voxel_vertex(corner_points[3].into(), [-1.0, 0.0, 0.0]));
-        /*17*/
-        vertex_data.push(voxel_vertex(corner_points[0].into(), [-1.0, 0.0, 0.0]));
-        /*18*/
-        vertex_data.push(voxel_vertex(corner_points[4].into(), [-1.0, 0.0, 0.0]));
-        /*19*/
-        vertex_data.push(voxel_vertex(corner_points[7].into(), [-1.0, 0.0, 0.0]));
-
-        // front
-        /*20*/
-        vertex_data.push(voxel_vertex(corner_points[4].into(), [0.0, 0.0, 1.0]));
-        /*21*/
-        vertex_data.push(voxel_vertex(corner_points[5].into(), [0.0, 0.0, 1.0]));
-        /*22*/
-        vertex_data.push(voxel_vertex(corner_points[6].into(), [0.0, 0.0, 1.0]));
-        /*23*/
-        vertex_data.push(voxel_vertex(corner_points[7].into(), [0.0, 0.0, 1.0]));
-
-        vertex_data
+        Self::CORNER_INDICES
+            .iter()
+            .enumerate()
+            .map(|(i, corner)| voxel_vertex(corner_points[*corner].into(), normals[i / 4]))
+            .collect()
     }
 }
 
@@ -418,22 +321,42 @@ mod tests {
 
     #[test]
     fn ray_box_intersection() {
-
-        let black      = [0.0, 0.0, 0.0, 1.0];
-        let origin     = Vector3::new(0.0, 0.0, 0.0);
-        let ray_dir    = Vector3::new(1.0, 0.0, 0.0);
+        let black = [0.0, 0.0, 0.0, 1.0];
+        let origin = Vector3::new(0.0, 0.0, 0.0);
+        let ray_dir = Vector3::new(1.0, 0.0, 0.0);
         let box_extent = Vector3::new(1.0, 1.0, 1.0);
         let box_corner = Vector3::new(1.0, -0.5, -0.5);
 
         let ray = Ray::new(origin, ray_dir);
-        let bb  = BoundingBox::new(box_corner,
-                                   box_extent,
-                                   black);
+        let bb = BoundingBox::new(box_corner, box_extent, black);
 
         let expected_dist = box_corner.x.abs() + box_corner.y.abs() + box_corner.z.abs(); // Manhattan distance
-        let mut dist      = 0.0;
+        let mut dist = 0.0;
 
-        assert!( ray.box_intersection(&bb, &mut dist) );
-        assert_eq!( dist, expected_dist );
+        assert!(ray.box_intersection(&bb, &mut dist));
+        assert_eq!(dist, expected_dist);
+    }
+
+    #[test]
+    fn ray_plane_intersection() {
+        let ray_origin = Vector3::new(0.5, 0.5, 10.0);
+        let ray_end = Vector3::new(0.5, 0.5, -50.0);
+        let ray = Ray::new(ray_origin, ray_end);
+        let intersection = ray.plane_intersection(&XY_PLANE);
+        let expected_intersection = Some(Vector3::new(0.5, 0.5, 0.0));
+        assert_eq!(intersection, expected_intersection);
+    }
+
+    #[test]
+    fn test_manhattan_distance() {
+        let mut start = Vector3::new(10.0, 10.0, 10.0);
+        let mut end = Vector3::new(0.0, 0.0, 0.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 30.0);
+        end = Vector3::new(5.0, 5.0, 5.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 15.0);
+        start = Vector3::new(-10.0, -10.0, -10.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 45.0);
+        end = Vector3::new(-10.0, -10.0, -10.0);
+        assert_eq!(BoundingBox::manhattan_distance(&start, &end), 0.0);
     }
 }
