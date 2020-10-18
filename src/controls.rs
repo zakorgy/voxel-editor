@@ -48,36 +48,50 @@ impl ColorPicker {
         let colors = vec![
             // red
             Color::new(1.0, 0.0, 0.0, 1.0),
+            // maroon
+            Color::new(0.5, 0.0, 0.0, 1.0),
             // orange
-            Color::new(1.0, 165.0 / 255.0, 0.0, 1.0),
+            Color::from_rgb8(255, 165, 0),
             // orange red
-            Color::new(1.0, 69.0 / 255.0, 0.0, 1.0),
+            Color::from_rgb8(255, 69, 0),
             // yellow
             Color::new(1.0, 1.0, 0.0, 1.0),
+            // olive
+            Color::new(0.5, 0.5, 0.0, 1.0),
             // brown
-            Color::new(139.0 / 255.0, 69.0 / 255.0, 19.0 / 255.0, 1.0),
+            Color::from_rgb8(139, 69, 19),
             // purple
             Color::new(0.5, 0.0, 0.5, 1.0),
             // magenta
             Color::new(1.0, 0.0, 1.0, 1.0),
             // violet
-            Color::new(148.0 / 255.0, 0.0, 211.0 / 255.0, 1.0),
+            Color::from_rgb8(148, 0, 211),
             // blue
             Color::new(0.0, 0.0, 1.0, 1.0),
+            // navy
+            Color::new(0.0, 0.0, 0.5, 1.0),
             // deep sky blue
-            Color::new(0.0, 191.0 / 255.0, 1.0, 1.0),
+            Color::from_rgb8(0, 191, 255),
             // aqua marine
-            Color::new(127.0 / 252.0, 1.0, 212.0 / 252.0, 1.0),
+            Color::from_rgb8(127, 255, 212),
             // cyan
             Color::new(0.0, 1.0, 1.0, 1.0),
-            // green
+            // lime
             Color::new(0.0, 1.0, 0.0, 1.0),
+            // green
+            Color::new(0.0, 0.5, 0.0, 1.0),
+            // light-green
+            Color::from_rgb8(144, 238, 144),
+            // forest green
+            Color::from_rgb8(34, 139, 34),
+            // teal
+            Color::new(0.0, 0.5, 0.5, 1.0),
             // chartreuse
             Color::new(0.5, 1.0, 0.0, 1.0),
             // white
             Color::new(1.0, 1.0, 1.0, 1.0),
             // silver
-            Color::new(192.0 / 255.0, 192.0 / 255.0, 192.0 / 255.0, 1.0),
+            Color::from_rgb8(192, 192, 192),
             // gray
             Color::new(0.5, 0.5, 0.5, 1.0),
             // black
