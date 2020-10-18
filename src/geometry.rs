@@ -193,6 +193,15 @@ pub struct BoundingBox {
 }
 
 impl BoundingBox {
+    const CORNER_INDICES: [usize; 24] = [
+        0, 3, 2, 1, // back
+        1, 5, 4, 0, // bottom
+        2, 6, 5, 1, // right
+        3, 7, 6, 2, // top
+        3, 0, 4, 7, // left
+        4, 5, 6, 7, // front
+    ];
+
     fn vec_max(&self) -> Vector3<f32> {
         self.corner + self.extent
     }
@@ -280,86 +289,28 @@ impl BoundingBox {
         let corner_points = self.corner_points();
         let color = self.color;
 
-        // back
-        let corner_indices = [
-            0, 3, 2, 1, // back
-            1, 5, 4, 0, // bottom
-            2, 6, 5, 1, // right
-            3, 7, 6, 2, // top
-            3, 0, 4, 7, // left
-            4, 5, 6, 7, // front
-        ];
-
-        corner_indices
+        Self::CORNER_INDICES
             .iter()
             .map(|i| vertex(corner_points[*i].into(), color))
             .collect()
     }
 
     pub fn voxel_vertices(&self) -> Vec<VoxelVertex> {
-        let mut vertex_data = Vec::new();
         let corner_points = self.corner_points();
-        // back
-        /*0*/
-        vertex_data.push(voxel_vertex(corner_points[0].into(), [0.0, 0.0, -1.0]));
-        /*1*/
-        vertex_data.push(voxel_vertex(corner_points[3].into(), [0.0, 0.0, -1.0]));
-        /*2*/
-        vertex_data.push(voxel_vertex(corner_points[2].into(), [0.0, 0.0, -1.0]));
-        /*3*/
-        vertex_data.push(voxel_vertex(corner_points[1].into(), [0.0, 0.0, -1.0]));
+        let normals = [
+            [0.0, 0.0, -1.0],
+            [0.0, -1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ];
 
-        // bottom
-        /*4*/
-        vertex_data.push(voxel_vertex(corner_points[1].into(), [0.0, -1.0, 0.0]));
-        /*5*/
-        vertex_data.push(voxel_vertex(corner_points[5].into(), [0.0, -1.0, 0.0]));
-        /*6*/
-        vertex_data.push(voxel_vertex(corner_points[4].into(), [0.0, -1.0, 0.0]));
-        /*7*/
-        vertex_data.push(voxel_vertex(corner_points[0].into(), [0.0, -1.0, 0.0]));
-
-        // right
-        /*9*/
-        vertex_data.push(voxel_vertex(corner_points[2].into(), [1.0, 0.0, 0.0]));
-        /*8*/
-        vertex_data.push(voxel_vertex(corner_points[6].into(), [1.0, 0.0, 0.0]));
-        /*10*/
-        vertex_data.push(voxel_vertex(corner_points[5].into(), [1.0, 0.0, 0.0]));
-        /*11*/
-        vertex_data.push(voxel_vertex(corner_points[1].into(), [1.0, 0.0, 0.0]));
-
-        // top
-        /*12*/
-        vertex_data.push(voxel_vertex(corner_points[3].into(), [0.0, 1.0, 0.0]));
-        /*13*/
-        vertex_data.push(voxel_vertex(corner_points[7].into(), [0.0, 1.0, 0.0]));
-        /*14*/
-        vertex_data.push(voxel_vertex(corner_points[6].into(), [0.0, 1.0, 0.0]));
-        /*15*/
-        vertex_data.push(voxel_vertex(corner_points[2].into(), [0.0, 1.0, 0.0]));
-
-        // left
-        /*16*/
-        vertex_data.push(voxel_vertex(corner_points[3].into(), [-1.0, 0.0, 0.0]));
-        /*17*/
-        vertex_data.push(voxel_vertex(corner_points[0].into(), [-1.0, 0.0, 0.0]));
-        /*18*/
-        vertex_data.push(voxel_vertex(corner_points[4].into(), [-1.0, 0.0, 0.0]));
-        /*19*/
-        vertex_data.push(voxel_vertex(corner_points[7].into(), [-1.0, 0.0, 0.0]));
-
-        // front
-        /*20*/
-        vertex_data.push(voxel_vertex(corner_points[4].into(), [0.0, 0.0, 1.0]));
-        /*21*/
-        vertex_data.push(voxel_vertex(corner_points[5].into(), [0.0, 0.0, 1.0]));
-        /*22*/
-        vertex_data.push(voxel_vertex(corner_points[6].into(), [0.0, 0.0, 1.0]));
-        /*23*/
-        vertex_data.push(voxel_vertex(corner_points[7].into(), [0.0, 0.0, 1.0]));
-
-        vertex_data
+        Self::CORNER_INDICES
+            .iter()
+            .enumerate()
+            .map(|(i, corner)| voxel_vertex(corner_points[*corner].into(), normals[i / 4]))
+            .collect()
     }
 }
 
