@@ -37,7 +37,7 @@ env_logger = "0.7"
 futures = "0.3"
 log = "0.4"
 winit = "0.22"
-nfd = "0.0.4"
+tinyfiledialogs = "3.0"
 
 [features]
 #default = ["debug_ray"]
