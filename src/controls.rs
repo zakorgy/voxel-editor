@@ -1,3 +1,5 @@
+extern crate tinyfiledialogs;
+
 use iced_wgpu::{
     canvas,
     container::{Style, StyleSheet},
@@ -215,14 +217,9 @@ impl Program for Controls {
         match message {
             Message::EditChanged(op) => self.edit_op.set(op),
             Message::ExportPressed => {
-                let result = nfd::open_save_dialog(Some("obj"), None).unwrap_or_else(|e| {
-                    panic!(e);
-                });
+                let file_path = tinyfiledialogs::save_file_dialog("Save", "Untitled.obj");
 
-                match result {
-                    nfd::Response::Okay(file_path) => self.save_file.set(Some(file_path)),
-                    _ => {}
-                }
+                if file_path.is_some() { self.save_file.set( file_path ); }
             }
             Message::ColorPicked(color) => self.picked_color = PickedColor::new(color),
         };
