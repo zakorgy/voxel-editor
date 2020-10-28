@@ -226,23 +226,32 @@ impl Editor {
         let (vertex_data, indices) = self.get_model_data();
         let mut buffer = BufWriter::new(File::create(&file_path)?);
 
-        buffer.write_all(b"# List of geometric vertices, with (x, y, z [,w]) coordinates, w is optional and defaults to 1.0.\n")?;
+        const NORMALS_PER_FACES: u32 = 4;
+        const NORMAL_COUNT: u32 = 6;
+        const NORMALS: [[f32; 3]; NORMAL_COUNT as usize] = [
+            [0.000, 0.000, -1.000],
+            [0.000, -1.000, 0.000],
+            [1.000, 0.000, 0.000],
+            [0.000, 1.000, 0.000],
+            [-1.000, 0.000, 0.000],
+            [0.000, 0.000, 1.000],
+        ];
+
         buffer.write_all(
             b"# List of vertex normals in (x,y,z) form; normals might not be unit vectors.\n",
         )?;
+        for normal in NORMALS.iter() {
+            buffer.write_all(
+                format!("vn {:.3} {:.3} {:.3}\n", normal[0], normal[1], normal[2]).as_ref(),
+            )?;
+        }
 
+        buffer.write_all(b"# List of geometric vertices, with (x, y, z [,w]) coordinates, w is optional and defaults to 1.0.\n")?;
         for vd in vertex_data.iter() {
             buffer.write_all(
                 format!(
                     "v {:.3} {:.3} {:.3} 1.0\n",
                     vd.pos[0] as f32, vd.pos[1] as f32, vd.pos[2] as f32
-                )
-                .as_ref(),
-            )?;
-            buffer.write_all(
-                format!(
-                    "vn {:.3} {:.3} {:.3}\n",
-                    vd.normal[0], vd.normal[1], vd.normal[2]
                 )
                 .as_ref(),
             )?;
@@ -253,10 +262,13 @@ impl Editor {
         for id in indices.chunks(3) {
             buffer.write_all(
                 format!(
-                    "f {0}//{0} {1}//{1} {2}//{2}\n",
+                    "f {}//{} {}//{} {}//{}\n",
                     id[0] + 1,
+                    id[0] / NORMALS_PER_FACES % NORMAL_COUNT + 1,
                     id[1] + 1,
-                    id[2] + 1
+                    id[1] / NORMALS_PER_FACES % NORMAL_COUNT + 1,
+                    id[2] + 1,
+                    id[2] / NORMALS_PER_FACES % NORMAL_COUNT + 1
                 )
                 .as_ref(),
             )?;
