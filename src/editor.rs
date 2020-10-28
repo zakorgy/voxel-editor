@@ -55,38 +55,25 @@ impl Editor {
         } = event
         {
             match state {
-                event::ElementState::Pressed => {
-                    self.state = EditorState::Edit;
-                }
-                event::ElementState::Released => {
-                    self.state = EditorState::EditFinished;
-                }
+                event::ElementState::Pressed => self.state = EditorState::Edit,
+                event::ElementState::Released => self.state = EditorState::EditFinished,
             }
         };
         if let event::WindowEvent::KeyboardInput {
             input:
                 event::KeyboardInput {
-                    virtual_keycode: Some(event::VirtualKeyCode::Space),
+                    virtual_keycode: keycode,
                     state: event::ElementState::Pressed,
                     ..
                 },
             ..
         } = event
         {
-            self.ui.controls().step_edit_op();
-        };
-
-        if let event::WindowEvent::KeyboardInput {
-            input:
-                event::KeyboardInput {
-                    virtual_keycode: Some(event::VirtualKeyCode::G),
-                    state: event::ElementState::Pressed,
-                    ..
-                },
-            ..
-        } = event
-        {
-            self.renderer.toggle_render_mesh();
+            match keycode {
+                Some(event::VirtualKeyCode::Space) => self.ui.controls().step_edit_op(),
+                Some(event::VirtualKeyCode::G) => self.renderer.toggle_render_mesh(),
+                _ => {}
+            };
         };
 
         if let event::WindowEvent::CursorMoved { position, .. } = event {
