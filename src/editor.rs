@@ -339,8 +339,8 @@ impl Editor {
             }
             if let Some(file_path) = self.ui.controls().save_path() {
                 match self.save_vertices(file_path) {
-                    Err(e) => println!("Failed to save file reason: {:?}", e),
-                    Ok(_) => println!("File saved"),
+                    Err(e) => log::error!("Failed to save file reason: {:?}", e),
+                    Ok(_) => log::info!("File saved"),
                 };
             }
             match event {
@@ -350,13 +350,6 @@ impl Editor {
                         self.window.request_redraw();
                         last_update_inst = time::Instant::now();
                     }
-                }
-                event::Event::WindowEvent {
-                    event: WindowEvent::Resized(size),
-                    ..
-                } => {
-                    log::info!("Resizing to {:?}", size);
-                    self.resize(size);
                 }
                 event::Event::WindowEvent { event, .. } => {
                     match event {
@@ -371,6 +364,10 @@ impl Editor {
                         }
                         | WindowEvent::CloseRequested => {
                             *control_flow = ControlFlow::Exit;
+                        }
+                        WindowEvent::Resized(size) => {
+                            log::info!("Resizing to {:?}", size);
+                            self.resize(size);
                         }
                         _ => {}
                     }
