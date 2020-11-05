@@ -3,12 +3,12 @@ use crate::vertex::{instance, VoxelInstance, VoxelVertex};
 use cgmath::Vector3;
 
 #[derive(Copy, Clone, Default)]
-struct CubeDescriptor {
+struct Voxel {
     color: Option<[f32; 4]>,
     neighbours: usize,
 }
 
-impl CubeDescriptor {
+impl Voxel {
     fn incr(&mut self) {
         self.neighbours += 1;
         debug_assert!(self.neighbours < 7);
@@ -26,14 +26,14 @@ impl CubeDescriptor {
 }
 
 pub struct VoxelManager {
-    boxes: Vec<Vec<Vec<CubeDescriptor>>>,
+    voxels: Vec<Vec<Vec<Voxel>>>,
     extent: usize,
 }
 
 impl VoxelManager {
     pub fn new(extent: usize) -> Self {
         VoxelManager {
-            boxes: vec![vec![vec![Default::default(); extent]; extent]; extent],
+            voxels: vec![vec![vec![Default::default(); extent]; extent]; extent],
             extent,
         }
     }
@@ -47,13 +47,13 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    if self.boxes[x][y][z]
+                    if self.voxels[x][y][z]
                         .color
                         .replace(bbox.color.into())
                         .is_none()
                     {
                         for [nx, ny, nz] in self.get_neighbour_indices(x, y, z) {
-                            self.boxes[nx][ny][nz].incr();
+                            self.voxels[nx][ny][nz].incr();
                         }
                     }
                 }
@@ -70,9 +70,9 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    if self.boxes[x][y][z].color.take().is_some() {
+                    if self.voxels[x][y][z].color.take().is_some() {
                         for [nx, ny, nz] in self.get_neighbour_indices(x, y, z) {
-                            self.boxes[nx][ny][nz].decr();
+                            self.voxels[nx][ny][nz].decr();
                         }
                     }
                 }
@@ -89,8 +89,8 @@ impl VoxelManager {
         for x in origin.x..origin.x + bbox.extent.x as usize {
             for y in origin.y..origin.y + bbox.extent.y as usize {
                 for z in origin.z..origin.z + bbox.extent.z as usize {
-                    if self.boxes[x][y][z].color.is_some() {
-                        self.boxes[x][y][z].color = Some(bbox.color.into());
+                    if self.voxels[x][y][z].color.is_some() {
+                        self.voxels[x][y][z].color = Some(bbox.color.into());
                     }
                 }
             }
@@ -133,7 +133,7 @@ impl VoxelManager {
     ) -> Vec<BoundingBox> {
         let mut origins = Vec::new();
         for [nx, ny, nz] in self.get_neighbour_indices(pos_x, pos_y, pos_z) {
-            if self.boxes[nx][ny][nz].color.is_none() {
+            if self.voxels[nx][ny][nz].color.is_none() {
                 origins.push(BoundingBox::new(
                     cgmath::Vector3::new(nx as f32, ny as f32, nz as f32),
                     cgmath::Vector3::new(1.0, 1.0, 1.0),
@@ -156,8 +156,8 @@ impl VoxelManager {
         for x in 0..self.extent {
             for y in 0..self.extent {
                 for z in 0..self.extent {
-                    if let Some(color) = self.boxes[x][y][z].color {
-                        if !self.boxes[x][y][z].visible() {
+                    if let Some(color) = self.voxels[x][y][z].color {
+                        if !self.voxels[x][y][z].visible() {
                             continue;
                         }
                         bbox = BoundingBox::new(
@@ -171,11 +171,11 @@ impl VoxelManager {
                                 closest_distance = distance.abs();
                                 erase_box = Some(bbox);
                                 if cfg!(feature = "debug_ray") {
-                                    self.boxes[x][y][z].color = Some([0.0, 0.0, 1.0, 1.0]);
+                                    self.voxels[x][y][z].color = Some([0.0, 0.0, 1.0, 1.0]);
                                 }
                             }
                         } else if cfg!(feature = "debug_ray") {
-                            self.boxes[x][y][z].color = Some([0.0, 1.0, 0.0, 0.1]);
+                            self.voxels[x][y][z].color = Some([0.0, 1.0, 0.0, 0.1]);
                         }
                     }
                 }
@@ -209,8 +209,8 @@ impl VoxelManager {
         for x in 0..self.extent {
             for y in 0..self.extent {
                 for z in 0..self.extent {
-                    if let Some(color) = self.boxes[x][y][z].color {
-                        if !self.boxes[x][y][z].visible() {
+                    if let Some(color) = self.voxels[x][y][z].color {
+                        if !self.voxels[x][y][z].visible() {
                             continue;
                         }
                         idx = vertex_data.len() as u32;
@@ -243,8 +243,8 @@ impl VoxelManager {
         for x in 0..self.extent {
             for y in 0..self.extent {
                 for z in 0..self.extent {
-                    if let Some(color) = self.boxes[x][y][z].color {
-                        if self.boxes[x][y][z].visible() {
+                    if let Some(color) = self.voxels[x][y][z].color {
+                        if self.voxels[x][y][z].visible() {
                             instance_data.push(instance([x as f32, y as f32, z as f32], color));
                         }
                     }
@@ -268,7 +268,7 @@ mod tests {
             [1.0, 0.0, 0.0, 1.0],
         );
         manager.add_box(bbox);
-        assert_eq!(manager.boxes[1][1][1].neighbours, 6);
+        assert_eq!(manager.voxels[1][1][1].neighbours, 6);
 
         bbox = BoundingBox::new(
             Vector3::new(1.0, 2.0, 0.0),
@@ -276,7 +276,7 @@ mod tests {
             [1.0, 0.0, 0.0, 1.0],
         );
         manager.erase_box(bbox);
-        assert_eq!(manager.boxes[1][1][1].neighbours, 5);
+        assert_eq!(manager.voxels[1][1][1].neighbours, 5);
 
         bbox = BoundingBox::new(
             Vector3::new(1.0, 0.0, 0.0),
@@ -284,7 +284,7 @@ mod tests {
             [1.0, 0.0, 0.0, 1.0],
         );
         manager.erase_box(bbox);
-        assert_eq!(manager.boxes[1][1][1].neighbours, 4);
+        assert_eq!(manager.voxels[1][1][1].neighbours, 4);
 
         bbox = BoundingBox::new(
             Vector3::new(0.0, 0.0, 0.0),
@@ -292,7 +292,7 @@ mod tests {
             [1.0, 0.0, 0.0, 1.0],
         );
         manager.erase_box(bbox);
-        assert_eq!(manager.boxes[1][1][1].neighbours, 0);
+        assert_eq!(manager.voxels[1][1][1].neighbours, 0);
 
         bbox = BoundingBox::new(
             Vector3::new(0.0, 0.0, 0.0),
@@ -300,7 +300,7 @@ mod tests {
             [1.0, 0.0, 0.0, 1.0],
         );
         manager.add_box(bbox);
-        assert_eq!(manager.boxes[0][0][0].neighbours, 3);
+        assert_eq!(manager.voxels[0][0][0].neighbours, 3);
 
         bbox = BoundingBox::new(
             Vector3::new(1.0, 1.0, 1.0),
@@ -309,6 +309,6 @@ mod tests {
         );
         manager.add_box(bbox);
 
-        assert_eq!(manager.boxes[1][1][1].neighbours, 6);
+        assert_eq!(manager.voxels[1][1][1].neighbours, 6);
     }
 }
