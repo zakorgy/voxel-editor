@@ -4,8 +4,7 @@ layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragViewVec;
 layout(location = 3) in vec3 fragLightVec;
-layout(location = 4) in vec4 vertPos;
-layout(location = 5) in mat4 fragLightProj;
+layout(location = 4) in vec4 fragPosLightSpace;
 
 
 layout(location = 0) out vec4 outColor;
@@ -13,7 +12,7 @@ layout(location = 0) out vec4 outColor;
 layout(set = 0, binding = 2) uniform texture2D t_Shadow;
 layout(set = 0, binding = 3) uniform sampler s_Shadow;
 
-float ShadowCalculation(vec4 fragPosLightSpace)
+float ShadowCalculation()
 {
     const vec2 flip_correction = vec2(0.5, -0.5);
     // compute texture coordinates for shadow lookup
@@ -34,7 +33,7 @@ float ShadowCalculation(vec4 fragPosLightSpace)
     return shadow;
 }
 
-float ShadowCalculationPcf(vec4 fragPosLightSpace)
+float ShadowCalculationPcf()
 {
     const vec2 flip_correction = vec2(0.5, -0.5);
     // compute texture coordinates for shadow lookup
@@ -67,14 +66,13 @@ float ShadowCalculationPcf(vec4 fragPosLightSpace)
 void main() {
   vec3 N = normalize(fragNormal);
   vec3 L = normalize(fragLightVec);
-  vec3 V = normalize(fragViewVec.xyz);
+  vec3 V = normalize(fragViewVec);
   vec3 R = reflect(L, N);
 
   vec3 ambient = fragColor.xyz * 0.2;
   vec3 diffuse = fragColor.xyz * max(dot(N, L), 0.0);
   //vec3 specular = pow(max(dot(R, V), 0.0), 16.0) * vec3(1.35);
-  vec4 FragPosLightSpace = fragLightProj * vertPos;
-  float shadow = ShadowCalculationPcf(FragPosLightSpace);
+  float shadow = ShadowCalculationPcf();
   vec3 lighting = (ambient + (1.0 - shadow) * (diffuse /*+ specular*/));
 
   outColor = vec4(lighting, fragColor.z);
