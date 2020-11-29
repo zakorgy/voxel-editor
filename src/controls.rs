@@ -2,9 +2,10 @@ extern crate tinyfiledialogs;
 
 use iced_wgpu::{
     canvas,
-    container::{Style, StyleSheet},
     Renderer,
 };
+
+use iced_wgpu::container::{Style, StyleSheet};
 use iced_winit::{
     button, mouse, Background, Button, Color, Column, Command, Container, Element, Length, Point,
     Program, Radio, Rectangle, Size, Text,

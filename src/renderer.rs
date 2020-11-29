@@ -1,10 +1,10 @@
-use crate::camera::CameraWrapper;
-use crate::color::*;
-use crate::geometry::*;
-use crate::light::*;
-use crate::ui::{build_ui_pipeline, Ui};
-use crate::vertex::*;
-use crate::voxel_manager::VoxelManager;
+use camera::CameraWrapper;
+use color::*;
+use geometry::*;
+use light::*;
+use ui::{build_ui_pipeline, Ui};
+use vertex::*;
+use voxel_manager::VoxelManager;
 use cgmath;
 use iced_wgpu::wgpu;
 use iced_winit::mouse::Interaction;
@@ -972,10 +972,7 @@ impl Renderer {
     pub fn render(
         &mut self,
         ui: &mut Ui,
-        #[cfg(feature = "debug_ray")] voxel_manager: &mut VoxelManager,
     ) -> Interaction {
-        #[cfg(feature = "debug_ray")]
-        self.debug_update(voxel_manager);
 
         let frame = match self.swap_chain.get_next_texture() {
             Ok(frame) => frame,

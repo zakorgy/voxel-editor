@@ -1,4 +1,4 @@
-use crate::color::*;
+use color::*;
 use bytemuck::{Pod, Zeroable};
 
 #[derive(Clone, Copy)]

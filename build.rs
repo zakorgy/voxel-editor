@@ -4,6 +4,10 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 fn main() {
+    let dest: String = concat!("target/doc/", env!("CARGO_PKG_NAME")).to_string();
+
+    let _ = mml::src2both("src", dest.replace("-", "_").as_str());
+
     let manifest_dir = env::var_os("CARGO_MANIFEST_DIR").unwrap();
     #[cfg(target_os = "linux")]
     let glslang_path = Path::new(&manifest_dir).join("tools/glslangValidator_unix");

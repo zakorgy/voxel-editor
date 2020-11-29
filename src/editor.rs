@@ -1,11 +1,11 @@
-use crate::camera::CameraWrapper;
-use crate::controls::EditOp;
-use crate::fps::FpsCounter;
-use crate::geometry::*;
-use crate::renderer::{Renderer, DEFAULT_MESH_COUNT};
-use crate::ui::Ui;
-use crate::vertex::VoxelVertex;
-use crate::voxel_manager::VoxelManager;
+use camera::CameraWrapper;
+use controls::EditOp;
+use fps::FpsCounter;
+use geometry::*;
+use renderer::{Renderer, DEFAULT_MESH_COUNT};
+use ui::Ui;
+use vertex::VoxelVertex;
+use voxel_manager::VoxelManager;
 use cgmath::Vector3;
 use futures::executor::block_on;
 use iced_wgpu::wgpu;
@@ -14,10 +14,9 @@ use std::io::prelude::*;
 use std::io::BufWriter;
 use std::time;
 
-use winit::{
-    event::{self, WindowEvent},
-    event_loop::ControlFlow,
-};
+use winit::event_loop::ControlFlow;
+
+use winit::event::{self, WindowEvent};
 
 #[derive(Eq, PartialEq)]
 enum EditorState {

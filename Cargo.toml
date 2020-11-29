@@ -45,3 +45,8 @@ debug_ray = []
 
 [replace]
 "winit:0.22.2" = { git = "https://github.com/rust-windowing/winit", rev = "02a34a167ab281d7cca9908f67928b659d428b39" }
+
+[build-dependencies.mml]
+version = "0.1.59"
+git = "https://github.com/adjivas/ml"
+rev = "faaa46426382f17f4c2e628e23b28f72475c7f29"

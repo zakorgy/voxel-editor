@@ -1,11 +1,15 @@
-use crate::controls::Controls;
+use controls::Controls;
 use iced_wgpu::{wgpu, Backend, Renderer, Settings, Viewport};
-use iced_winit::{conversion, mouse::Interaction, program, winit, Debug, Size};
-use winit::{
-    dpi::PhysicalPosition,
-    event::{ModifiersState, WindowEvent},
-    window::Window,
-};
+use iced_winit::{conversion, program, winit, Debug, Size};
+use iced_winit::mouse::Interaction;
+use winit::
+    dpi::PhysicalPosition;
+
+use winit::
+    event::{ModifiersState, WindowEvent};
+
+use winit::
+    window::Window;
 
 pub struct Ui {
     renderer: Renderer,

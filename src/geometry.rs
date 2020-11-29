@@ -1,5 +1,5 @@
-use crate::camera::CameraWrapper;
-use crate::vertex::*;
+use camera::CameraWrapper;
+use vertex::*;
 use cgmath::{InnerSpace, Matrix4, Transform, Vector3, Vector4};
 
 pub const EPSYLON: f32 = 0.000001;

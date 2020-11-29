@@ -1,5 +1,5 @@
-use crate::geometry::{BoundingBox, Ray};
-use crate::vertex::{instance, VoxelInstance, VoxelVertex};
+use geometry::{BoundingBox, Ray};
+use vertex::{instance, VoxelInstance, VoxelVertex};
 use cgmath::Vector3;
 
 #[derive(Copy, Clone, Default)]
