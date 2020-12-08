@@ -9,6 +9,8 @@ use crate::voxel_manager::VoxelManager;
 use cgmath::Vector3;
 use futures::executor::block_on;
 use iced_wgpu::wgpu;
+use ron::de::from_reader;
+use ron::ser::to_string;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
@@ -210,7 +212,7 @@ impl Editor {
             .set_cursor_icon(iced_winit::conversion::mouse_interaction(mouse_interaction));
     }
 
-    fn save_vertices(&self, file_path: String) -> std::io::Result<()> {
+    fn export_vertices(&self, file_path: String) -> std::io::Result<()> {
         let (vertex_data, indices) = self.get_model_data();
         let mut buffer = BufWriter::new(File::create(&file_path)?);
 
@@ -263,6 +265,29 @@ impl Editor {
         }
 
         buffer.flush()?;
+        Ok(())
+    }
+
+    fn save_scene(&self, file_path: String) -> std::io::Result<()> {
+        let mut buffer = BufWriter::new(File::create(&file_path)?);
+
+        let s = to_string(&self.voxel_manager).expect("Serialization failed");
+
+        buffer.write_all(s.as_bytes())?;
+
+        buffer.flush()?;
+        Ok(())
+    }
+
+    fn load_scene(&mut self, file_path: String) -> std::io::Result<()> {
+        let f = File::open(&file_path)?;
+
+        if let Ok(config) = from_reader(f) {
+            self.voxel_manager = config;
+        } else {
+            log::error!("Can't load model from .ron file");
+        }
+        self.renderer.update_scene(&self.voxel_manager);
         Ok(())
     }
 
@@ -337,10 +362,22 @@ impl Editor {
                 self.window
                     .set_title(&format!("Voxel-editor (FPS: {:?})", fps));
             }
+            if let Some(file_path) = self.ui.controls().export_path() {
+                match self.export_vertices(file_path) {
+                    Err(e) => log::error!("Failed to export model! Reason: {:?}", e),
+                    Ok(_) => log::info!("Model exported."),
+                };
+            }
             if let Some(file_path) = self.ui.controls().save_path() {
-                match self.save_vertices(file_path) {
-                    Err(e) => log::error!("Failed to save file reason: {:?}", e),
-                    Ok(_) => log::info!("File saved"),
+                match self.save_scene(file_path) {
+                    Err(e) => log::error!("Failed to save model! Reason: {:?}", e),
+                    Ok(_) => log::info!("Model saved."),
+                };
+            }
+            if let Some(file_path) = self.ui.controls().load_path() {
+                match self.load_scene(file_path) {
+                    Err(e) => log::error!("Failed to load model! Reason: {:?}", e),
+                    Ok(_) => log::info!("Model loaded."),
                 };
             }
             match event {
