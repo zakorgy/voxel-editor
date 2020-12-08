@@ -35,6 +35,8 @@ impl Default for EditOp {
 pub enum Message {
     EditChanged(EditOp),
     ExportPressed,
+    SavePressed,
+    LoadPressed,
     ColorPicked(Color),
 }
 
@@ -172,9 +174,13 @@ impl PickedColor {
 pub struct Controls {
     edit_op: Cell<EditOp>,
     export_button: button::State,
+    save_button: button::State,
+    load_button: button::State,
     color_picker: ColorPicker,
     picked_color: PickedColor,
+    export_file: Cell<Option<String>>,
     save_file: Cell<Option<String>>,
+    load_file: Cell<Option<String>>,
 }
 
 impl Controls {
@@ -182,9 +188,13 @@ impl Controls {
         Controls {
             edit_op: Cell::new(EditOp::default()),
             export_button: button::State::default(),
+            save_button: button::State::default(),
+            load_button: button::State::default(),
             color_picker: ColorPicker::new(),
             picked_color: PickedColor::new(Color::new(0.02, 0.02, 0.02, 1.0)),
+            export_file: Cell::new(None),
             save_file: Cell::new(None),
+            load_file: Cell::new(None),
         }
     }
 
@@ -204,8 +214,16 @@ impl Controls {
         self.picked_color.color
     }
 
+    pub fn export_path(&self) -> Option<String> {
+        self.export_file.take()
+    }
+
     pub fn save_path(&self) -> Option<String> {
         self.save_file.take()
+    }
+
+    pub fn load_path(&self) -> Option<String> {
+        self.load_file.take()
     }
 }
 
@@ -217,10 +235,20 @@ impl Program for Controls {
         match message {
             Message::EditChanged(op) => self.edit_op.set(op),
             Message::ExportPressed => {
-                let file_path = tinyfiledialogs::save_file_dialog("Save", "Untitled.obj");
+                let file_path = tinyfiledialogs::save_file_dialog("Export to OBJ", "Untitled.obj");
+
+                if file_path.is_some() { self.export_file.set( file_path ); }
+            },
+            Message::SavePressed => {
+                let file_path = tinyfiledialogs::save_file_dialog("Save to RON", "Untitled.ron");
 
                 if file_path.is_some() { self.save_file.set( file_path ); }
-            }
+            },
+            Message::LoadPressed => {
+                let file_path = tinyfiledialogs::open_file_dialog("Open RON", "Untitled.ron", None);
+
+                if file_path.is_some() { self.load_file.set( file_path ); }
+            },
             Message::ColorPicked(color) => self.picked_color = PickedColor::new(color),
         };
 
@@ -251,6 +279,14 @@ impl Program for Controls {
             .push(
                 Button::new(&mut self.export_button, Text::new("Export as .obj"))
                     .on_press(Message::ExportPressed),
+            )
+            .push(
+                Button::new(&mut self.save_button, Text::new("Save to .ron"))
+                    .on_press(Message::SavePressed),
+            )
+            .push(
+                Button::new(&mut self.load_button, Text::new("Load from .ron"))
+                    .on_press(Message::LoadPressed),
             );
 
         Container::new(edit_bar)

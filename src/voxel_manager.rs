@@ -1,8 +1,9 @@
 use crate::geometry::{BoundingBox, Ray};
 use crate::vertex::{instance, VoxelInstance, VoxelVertex};
 use cgmath::Vector3;
+use serde::{Serialize, Deserialize};
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Serialize, Deserialize)]
 struct Voxel {
     color: Option<[f32; 4]>,
     neighbours: usize,
@@ -25,6 +26,7 @@ impl Voxel {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct VoxelManager {
     voxels: Vec<Vec<Vec<Voxel>>>,
     extent: usize,

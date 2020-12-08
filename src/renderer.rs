@@ -823,20 +823,26 @@ impl Renderer {
         self.render_cursor = true;
     }
 
-    pub fn draw_rectangle(&mut self, color: [f32; 4], voxel_manager: &mut VoxelManager) {
-        if let Some(mut cube) = self.draw_cube.take() {
-            cube.rearrange();
-            cube.color = color;
-            voxel_manager.add_box(cube);
-            let instance_data = voxel_manager.instance_data();
+    pub fn update_scene(&mut self, voxel_manager: &VoxelManager) {
+        let instance_data = voxel_manager.instance_data();
+        if instance_data.len() > 0 {
             Self::write_buffer(
                 &self.device,
                 bytemuck::cast_slice(&instance_data),
                 &self.voxel_pipeline.instance_buf.as_ref().unwrap(),
                 &mut self.command_buffers,
             );
-            self.voxel_pipeline.instance_count = instance_data.len();
-            self.shadow_pipeline.instance_count = self.voxel_pipeline.instance_count;
+        }
+        self.voxel_pipeline.instance_count = instance_data.len();
+        self.shadow_pipeline.instance_count = self.voxel_pipeline.instance_count;
+    }
+
+    pub fn draw_rectangle(&mut self, color: [f32; 4], voxel_manager: &mut VoxelManager) {
+        if let Some(mut cube) = self.draw_cube.take() {
+            cube.rearrange();
+            cube.color = color;
+            voxel_manager.add_box(cube);
+            self.update_scene(voxel_manager);
         }
     }
 
@@ -845,17 +851,7 @@ impl Renderer {
             cube.rearrange();
             cube.color = color;
             voxel_manager.refill(cube);
-            let instance_data = voxel_manager.instance_data();
-            if instance_data.len() > 0 {
-                Self::write_buffer(
-                    &self.device,
-                    bytemuck::cast_slice(&instance_data),
-                    &self.voxel_pipeline.instance_buf.as_ref().unwrap(),
-                    &mut self.command_buffers,
-                );
-            }
-            self.voxel_pipeline.instance_count = instance_data.len();
-            self.shadow_pipeline.instance_count = self.voxel_pipeline.instance_count;
+            self.update_scene(voxel_manager);
         }
     }
 
@@ -877,17 +873,7 @@ impl Renderer {
         if let Some(mut cube) = self.draw_cube.take() {
             cube.rearrange();
             voxel_manager.erase_box(cube);
-            let instance_data = voxel_manager.instance_data();
-            if instance_data.len() > 0 {
-                Self::write_buffer(
-                    &self.device,
-                    bytemuck::cast_slice(&instance_data),
-                    &self.voxel_pipeline.instance_buf.as_ref().unwrap(),
-                    &mut self.command_buffers,
-                );
-            }
-            self.voxel_pipeline.instance_count = instance_data.len();
-            self.shadow_pipeline.instance_count = self.voxel_pipeline.instance_count;
+            self.update_scene(voxel_manager);
         }
     }
 
