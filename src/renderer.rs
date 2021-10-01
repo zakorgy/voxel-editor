@@ -714,9 +714,9 @@ impl Renderer {
             mesh_count,
             light: Light::new(
                 cgmath::Point3::new(
-                    (DEFAULT_MESH_COUNT / 2) as f32,
-                    DEFAULT_MESH_COUNT as f32 * 1.5,
-                    DEFAULT_MESH_COUNT as f32 * 2.0,
+                    (mesh_count / 2) as f32,
+                    mesh_count as f32 * 1.5,
+                    mesh_count as f32 * 2.0,
                 ),
                 wgpu::Color {
                     r: 1.0,
@@ -746,6 +746,10 @@ impl Renderer {
 
     pub fn toggle_render_mesh(&mut self) {
         self.render_mesh = !self.render_mesh
+    }
+
+    pub fn mesh_count(&self) -> u16 {
+        self.mesh_count
     }
 
     fn get_grid_pos(world_pos: cgmath::Vector3<f32>) -> cgmath::Vector3<f32> {
@@ -909,6 +913,44 @@ impl Renderer {
             &self.mesh_pipeline.index_buf,
             &mut self.command_buffers,
         );
+    }
+
+    pub fn resize_scene(
+        &mut self,
+        new_mesh_count: u16,
+    ) {
+        self.mesh_count = new_mesh_count;
+        let (vertex_data, index_data) = generate_mesh_vertices(self.mesh_count);
+        self.mesh_pipeline.index_count = index_data.len();
+        let vertex_buf_mesh = self.device.create_buffer_with_data(
+            bytemuck::cast_slice(&vertex_data),
+            wgpu::BufferUsage::VERTEX | wgpu::BufferUsage::COPY_DST,
+        );
+
+        let index_buf_mesh = self.device.create_buffer_with_data(
+            bytemuck::cast_slice(&index_data),
+            wgpu::BufferUsage::INDEX | wgpu::BufferUsage::COPY_DST,
+        );
+        self.mesh_pipeline.vertex_buf = Rc::new(vertex_buf_mesh);
+        self.mesh_pipeline.index_buf = Rc::new(index_buf_mesh);
+        self.recreate_light(None);
+    }
+
+    fn recreate_light(&mut self, color: Option<wgpu::Color>) {
+        self.light = Light::new(
+            cgmath::Point3::new(
+                (self.mesh_count / 2) as f32,
+                self.mesh_count as f32 * 1.5,
+                self.mesh_count as f32 * 2.0,
+            ),
+            wgpu::Color {
+                r: 1.0,
+                g: 1.0,
+                b: 1.0,
+                a: 1.0,
+            },
+        );
+        self.lights_are_dirty = true;
     }
 
     pub fn resize(&mut self, size: winit::dpi::PhysicalSize<u32>, camera: &mut CameraWrapper) {

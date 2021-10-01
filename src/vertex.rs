@@ -76,7 +76,8 @@ pub fn generate_mesh_vertices(meshes: u16) -> (Vec<Vertex>, Vec<u16>) {
     vertex_data.push(vertex([0.0, 0.0, mesh_count], BLUE));
     index_data.push((vertex_data.len() - 1) as u16);
 
-    for i in 1..(meshes + 1) {
+    for i in 1..=meshes {
+        println!("Mesh idx {}", i);
         // back
         vertex_data.push(white_vertex([0.0, 0.0 + i as f32, 0.0]));
         index_data.push((vertex_data.len() - 1) as u16);

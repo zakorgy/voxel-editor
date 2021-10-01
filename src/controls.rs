@@ -6,8 +6,8 @@ use iced_wgpu::{
     Renderer,
 };
 use iced_winit::{
-    button, mouse, Background, Button, Color, Column, Command, Container, Element, Length, Point,
-    Program, Radio, Rectangle, Size, Text,
+    button, mouse, slider, Background, Button, Color, Column, Command, Container, Element, Length, Point,
+    Program, Radio, Rectangle, Size, Slider, Text,
 };
 
 use std::cell::Cell;
@@ -38,6 +38,7 @@ pub enum Message {
     SavePressed,
     LoadPressed,
     ColorPicked(Color),
+    MeshResized(u16)
 }
 
 #[derive(Default)]
@@ -181,6 +182,9 @@ pub struct Controls {
     export_file: Cell<Option<String>>,
     save_file: Cell<Option<String>>,
     load_file: Cell<Option<String>>,
+    mesh_slider: slider::State,
+    mesh_size: Cell<u16>,
+    resize_editor_mesh: Cell<bool>,
 }
 
 impl Controls {
@@ -195,6 +199,9 @@ impl Controls {
             export_file: Cell::new(None),
             save_file: Cell::new(None),
             load_file: Cell::new(None),
+            mesh_slider: slider::State::default(),
+            mesh_size: Cell::new(32),
+            resize_editor_mesh: Cell::new(false),
         }
     }
 
@@ -225,6 +232,14 @@ impl Controls {
     pub fn load_path(&self) -> Option<String> {
         self.load_file.take()
     }
+
+    pub fn mesh_size(&self) -> u16 {
+        self.mesh_size.get()
+    }
+
+    pub fn resize_editor_mesh(&self) -> bool {
+        self.resize_editor_mesh.replace(false)
+    }
 }
 
 impl Program for Controls {
@@ -250,6 +265,10 @@ impl Program for Controls {
                 if file_path.is_some() { self.load_file.set( file_path ); }
             },
             Message::ColorPicked(color) => self.picked_color = PickedColor::new(color),
+            Message::MeshResized(size) => {
+                self.mesh_size.set(size);
+                self.resize_editor_mesh.set(true);
+            },
         };
 
         Command::none()
@@ -287,6 +306,12 @@ impl Program for Controls {
             .push(
                 Button::new(&mut self.load_button, Text::new("Load from .ron"))
                     .on_press(Message::LoadPressed),
+            )
+            .push(
+                Slider::new(&mut self.mesh_slider, 32..=128, self.mesh_size.get(), move |s| {
+                    Message::MeshResized(s)
+                })
+                .step(8),
             );
 
         Container::new(edit_bar)
