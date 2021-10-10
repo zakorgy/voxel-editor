@@ -121,3 +121,32 @@ pub fn generate_mesh_vertices(meshes: u16) -> (Vec<Vertex>, Vec<u16>) {
 
     (vertex_data, index_data)
 }
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    #[test]
+    fn test_mesh_vertices_1() {
+        let mesh_size = 16;
+        let (vertices, indices) = generate_mesh_vertices(mesh_size);
+        assert_eq!(vertices.len(), (mesh_size * 12 + 6) as usize);
+        assert_eq!(vertices.len(), indices.len());
+    }
+
+    #[test]
+    fn test_mesh_vertices_2() {
+        let mesh_size = 32;
+        let (vertices, indices) = generate_mesh_vertices(mesh_size);
+        assert_eq!(vertices.len(), (mesh_size * 12 + 6) as usize);
+        assert_eq!(vertices.len(), indices.len());
+    }
+
+    #[test]
+    fn test_mesh_vertices_3() {
+        let mesh_size = 128;
+        let (vertices, indices) = generate_mesh_vertices(mesh_size);
+        assert_eq!(vertices.len(), (mesh_size * 12 + 6) as usize);
+        assert_eq!(vertices.len(), indices.len());
+    }
+}
