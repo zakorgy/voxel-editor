@@ -181,10 +181,11 @@ pub struct Controls {
     export_file: Cell<Option<String>>,
     save_file: Cell<Option<String>>,
     load_file: Cell<Option<String>>,
+    width: u16,
 }
 
 impl Controls {
-    pub fn new() -> Controls {
+    pub fn new(width: u16) -> Controls {
         Controls {
             edit_op: Cell::new(EditOp::default()),
             export_button: button::State::default(),
@@ -195,6 +196,7 @@ impl Controls {
             export_file: Cell::new(None),
             save_file: Cell::new(None),
             load_file: Cell::new(None),
+            width,
         }
     }
 
@@ -260,7 +262,7 @@ impl Program for Controls {
             .iter()
             .fold(
                 Column::new()
-                    .width(Length::Units(150))
+                    .width(Length::Units(self.width))
                     .spacing(10)
                     .push(Text::new("Edit state (Press space to step):")),
                 |column, state| {
@@ -290,7 +292,7 @@ impl Program for Controls {
             );
 
         Container::new(edit_bar)
-            .width(Length::Units(150))
+            .width(Length::Units(self.width))
             .height(Length::Fill)
             .padding(10)
             .style(UiStyle {})
