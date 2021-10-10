@@ -27,9 +27,6 @@ jobs:
     - uses: actions/checkout@v2
     - name: Rust version
       run: rustc -V
-    - name: Fix windows build error
-      if: matrix.os == 'windows-latest'
-      run: cargo update -p error-code --precise 2.0.0
     - name: Build
       run: cargo build
     - name: Run tests
