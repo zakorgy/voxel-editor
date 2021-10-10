@@ -50,6 +50,9 @@ impl Editor {
 
     fn update(&mut self, event: winit::event::WindowEvent) {
         self.ui.update(&event, self.window.scale_factor());
+        if self.ui.is_cursor_over_ui {
+            return;
+        }
         // Don't change the view if we're editing the 3d canvas
         if let event::WindowEvent::MouseInput {
             state,
