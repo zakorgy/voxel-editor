@@ -40,6 +40,25 @@ impl VoxelManager {
         }
     }
 
+    pub fn resize(&mut self, new_extent: usize) {
+        let copy_extent;
+        if new_extent >= self.extent {
+            copy_extent = self.extent;
+        } else {
+            copy_extent = new_extent;
+        }
+        println!("Copy extent {}", copy_extent);
+        let mut voxels = vec![vec![vec![Default::default(); new_extent]; new_extent]; new_extent];
+        for x in 0..copy_extent {
+            for y in 0..copy_extent {
+                for z in 0..copy_extent {
+                    voxels[x][y][z] = self.voxels[x][y][z]
+                }
+            }
+        }
+        self.voxels = voxels
+    }
+
     pub fn add_box(&mut self, bbox: BoundingBox) {
         let origin: Vector3<usize> = Vector3::new(
             bbox.corner.x as usize,

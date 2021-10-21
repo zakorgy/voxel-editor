@@ -106,7 +106,7 @@ impl Editor {
         let mut closest_plane_name = "None";
         let mut closest_plane = None;
         let mut intersection_point = Vector3::new(0.0, 0.0, 0.0);
-        let mesh_count = DEFAULT_MESH_COUNT as f32;
+        let mesh_count = self.renderer.mesh_count() as f32;
         if erase_box.is_none() {
             for plane in [XY_PLANE, YZ_PLANE, XZ_PLANE].iter() {
                 if let Some(point) = self.cursor_ray.plane_intersection(plane) {
@@ -201,6 +201,13 @@ impl Editor {
                 };
                 self.state = EditorState::ChangeView;
             }
+        }
+
+        if self.ui.controls().resize_editor_mesh() {
+            let new_mesh_count = self.ui.controls().mesh_size();
+            println!("resize_editor_mesh to {}", new_mesh_count);
+            self.voxel_manager.resize(new_mesh_count as usize);
+            self.renderer.resize_scene(new_mesh_count);
         }
     }
 
@@ -363,7 +370,7 @@ impl Editor {
         event_loop.run(move |event, _, control_flow| {
             if let Some(fps) = fps_counter.get_fps() {
                 self.window
-                    .set_title(&format!("Voxel-editor (FPS: {:?})", fps));
+                    .set_title(&format!("Voxel-editor (FPS: {0}) {1}x{1}x{1}", fps, self.renderer.mesh_count()));
             }
             if let Some(file_path) = self.ui.controls().export_path() {
                 match self.export_vertices(file_path) {
