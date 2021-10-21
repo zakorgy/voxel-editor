@@ -14,10 +14,13 @@ pub struct Ui {
     viewport: Viewport,
     cursor_position: PhysicalPosition<f64>,
     modifiers: ModifiersState,
+    width: u16,
+    pub is_cursor_over_ui: bool,
 }
 
 impl Ui {
     pub fn new(window: &Window, device: &mut wgpu::Device) -> Ui {
+        let width = 150;
         let physical_size = window.inner_size();
         let viewport = Viewport::with_physical_size(
             Size::new(physical_size.width, physical_size.height),
@@ -26,7 +29,7 @@ impl Ui {
         let cursor_position = PhysicalPosition::new(-1.0, -1.0);
         let modifiers = ModifiersState::default();
 
-        let controls = Controls::new();
+        let controls = Controls::new(width);
         let mut debug = Debug::new();
         let mut renderer = Renderer::new(Backend::new(device, Settings::default()));
 
@@ -45,6 +48,8 @@ impl Ui {
             viewport,
             cursor_position,
             modifiers,
+            width,
+            is_cursor_over_ui: false,
         }
     }
 
@@ -72,6 +77,11 @@ impl Ui {
         }
         match *event {
             WindowEvent::CursorMoved { position, .. } => {
+                if position.x > self.width as f64 {
+                    self.is_cursor_over_ui = false;
+                } else {
+                    self.is_cursor_over_ui = true;
+                }
                 self.cursor_position = position;
             }
             WindowEvent::ModifiersChanged(new_modifiers) => {

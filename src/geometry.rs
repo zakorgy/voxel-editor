@@ -338,12 +338,43 @@ mod tests {
     }
 
     #[test]
-    fn ray_plane_intersection() {
+    fn ray_plane_intersection_xy() {
         let ray_origin = Vector3::new(0.5, 0.5, 10.0);
         let ray_end = Vector3::new(0.5, 0.5, -50.0);
         let ray = Ray::new(ray_origin, ray_end);
         let intersection = ray.plane_intersection(&XY_PLANE);
         let expected_intersection = Some(Vector3::new(0.5, 0.5, 0.0));
+        assert_eq!(intersection, expected_intersection);
+    }
+
+    #[test]
+    fn ray_plane_intersection_xz() {
+        let ray_origin = Vector3::new(0.5, 10.0, 0.5);
+        let ray_end = Vector3::new(0.5, -50.0, 0.5);
+        let ray = Ray::new(ray_origin, ray_end);
+        let intersection = ray.plane_intersection(&XZ_PLANE);
+        let expected_intersection = Some(Vector3::new(0.5, 0.0, 0.5));
+        assert_eq!(intersection, expected_intersection);
+    }
+
+    #[test]
+    fn ray_plane_intersection_yz() {
+        let ray_origin = Vector3::new(10.0, 0.5, 0.5);
+        let ray_end = Vector3::new(-50.0, 0.5, 0.5);
+        let ray = Ray::new(ray_origin, ray_end);
+        let intersection = ray.plane_intersection(&YZ_PLANE);
+        let expected_intersection = Some(Vector3::new(0.0, 0.5, 0.5));
+        assert_eq!(intersection, expected_intersection);
+    }
+
+
+    #[test]
+    fn ray_plane_intersection_origin() {
+        let ray_origin = Vector3::new(10.0, 10.0, 10.0);
+        let ray_end = Vector3::new(-0.5, -0.5, -0.5);
+        let ray = Ray::new(ray_origin, ray_end);
+        let intersection = ray.plane_intersection(&XY_PLANE);
+        let expected_intersection = Some(Vector3::new(0.0, 0.0, 0.0));
         assert_eq!(intersection, expected_intersection);
     }
 
